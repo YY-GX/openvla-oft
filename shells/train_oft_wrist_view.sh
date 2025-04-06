@@ -37,7 +37,6 @@ echo "Parameterize finish"
 sbatch \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
-#  -o "$LOG_DIR/$LOG_FILE" \
   -o "tmp.out" \
   -J $JOB_NAME \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node $GPUS $SCRIPT_PATH \
