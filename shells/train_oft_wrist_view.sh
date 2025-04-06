@@ -31,6 +31,8 @@ SAVE_FREQ=10000
 SAVE_LATEST_CHECKPOINT_ONLY=False
 RUN_ID_NOTE="parallel_dec--8_acts_chunk--continuous_acts--L1_regression--wrist_img--proprio_state"
 
+echo "Parameterize finish"
+
 # Submit the job
 sbatch \
   --cpus-per-task=$CPUS_PER_TASK \
