@@ -3,7 +3,7 @@
 # Define variables
 CPUS_PER_TASK=32
 GPUS=8
-LOG_DIR="$ENDPOINT/pkgs_baselines/openvla-oft/logs"
+LOG_DIR="$ENDPOINT/pkgs_baselines/openvla/logs"
 LOG_FILE="train_libero_local1_local_policy_only_wrist_%j.out"
 JOB_NAME="openvla_libero_local1_local_policy_only_wrist"
 SCRIPT_PATH="/mnt/arc/yygx/pkgs_baselines/openvla/vla-scripts/finetune.py"
@@ -33,8 +33,8 @@ RUN_ID_NOTE="parallel_dec--8_acts_chunk--continuous_acts--L1_regression--wrist_i
 sbatch \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
-#  -o "$LOG_DIR/$LOG_FILE" \
-  -o "/mnt/arc/yygx/pkgs_baselines/openvla-oft/logs/train_libero_local1_local_policy_only_wrist_%j.out"
+  -o "$LOG_DIR/$LOG_FILE" \
+#  -o "/mnt/arc/yygx/pkgs_baselines/openvla-oft/logs/train_libero_local1_local_policy_only_wrist_%j.out"
   -J $JOB_NAME \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node $GPUS $SCRIPT_PATH \
     --is_local_policy $USE_LOCAL_POLICY \
