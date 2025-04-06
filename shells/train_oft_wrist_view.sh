@@ -4,8 +4,8 @@
 CPUS_PER_TASK=32
 GPUS=8
 LOG_DIR="$ENDPOINT/pkgs_baselines/openvla/logs"
-LOG_FILE="train_libero_local1_local_policy_%j.out"
-JOB_NAME="openvla_libero_local1_local_policy"
+LOG_FILE="train_libero_local1_local_policy_only_wrist_%j.out"
+JOB_NAME="openvla_libero_local1_local_policy_only_wrist"
 SCRIPT_PATH="/mnt/arc/yygx/pkgs_baselines/openvla/vla-scripts/finetune.py"
 VLA_PATH="openvla/openvla-7b"
 DATA_ROOT_DIR="/mnt/arc/yygx/pkgs_baselines/openvla/datasets"
