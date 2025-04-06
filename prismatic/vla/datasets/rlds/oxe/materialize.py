@@ -26,9 +26,15 @@ def make_oxe_dataset_kwargs(
     load_proprio: bool = True,
     load_language: bool = True,
     action_proprio_normalization_type = ACTION_PROPRIO_NORMALIZATION_TYPE,
+    is_local_policy=False
 ) -> Dict[str, Any]:
     """Generates config (kwargs) for given dataset from Open-X Embodiment."""
     dataset_kwargs = deepcopy(OXE_DATASET_CONFIGS[dataset_name])
+
+    if is_local_policy:
+        # make wrist camera the primary view
+        dataset_kwargs["image_obs_keys"] = {"primary": "wrist_image", "secondary": None, "wrist": "image"}
+
     if dataset_kwargs["action_encoding"] not in [ActionEncoding.EEF_POS, ActionEncoding.EEF_R6, ActionEncoding.JOINT_POS_BIMANUAL]:
         raise ValueError(f"Cannot load `{dataset_name}`; only EEF_POS & EEF_R6 & JOINT_POS_BIMANUAL actions supported!")
 
@@ -87,6 +93,7 @@ def get_oxe_dataset_kwargs_and_weights(
     load_proprio: bool = True,
     load_language: bool = True,
     action_proprio_normalization_type = ACTION_PROPRIO_NORMALIZATION_TYPE,
+    is_local_policy=False
 ) -> Tuple[Dict[str, Any], List[float]]:
     """
     Generates dataset kwargs for a given dataset mix from the Open X-Embodiment dataset. The returned kwargs
@@ -124,6 +131,7 @@ def get_oxe_dataset_kwargs_and_weights(
                     load_proprio,
                     load_language,
                     action_proprio_normalization_type,
+                    is_local_policy
                 )
             )
             sampling_weights.append(d_weight)

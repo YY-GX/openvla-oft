@@ -119,6 +119,9 @@ class FinetuneConfig:
 
     # fmt: on
 
+    # local policy
+    is_local_policy: bool = False
+
 
 def remove_ddp_in_checkpoint(state_dict) -> dict:
     """
@@ -974,6 +977,7 @@ def finetune(cfg: FinetuneConfig) -> None:
         prompt_builder_fn=PurePromptBuilder,
         use_wrist_image=use_wrist_image,
         use_proprio=cfg.use_proprio,
+        is_local_policy=cfg.is_local_policy
     )
     train_dataset = RLDSDataset(
         cfg.data_root_dir,
@@ -982,6 +986,7 @@ def finetune(cfg: FinetuneConfig) -> None:
         resize_resolution=tuple(vla.module.config.image_sizes),
         shuffle_buffer_size=cfg.shuffle_buffer_size,
         image_aug=cfg.image_aug,
+        is_local_policy=cfg.is_local_policy
     )
     if cfg.use_val_set:
         val_dataset = RLDSDataset(
@@ -992,6 +997,7 @@ def finetune(cfg: FinetuneConfig) -> None:
             shuffle_buffer_size=cfg.shuffle_buffer_size // 10,
             image_aug=cfg.image_aug,
             train=False,
+            is_local_policy=cfg.is_local_policy
         )
 
     # [Important] Save dataset statistics so that we can unnormalize actions during inference
