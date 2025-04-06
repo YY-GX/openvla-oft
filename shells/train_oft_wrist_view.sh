@@ -34,7 +34,7 @@ sbatch \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
 #  -o "$LOG_DIR/$LOG_FILE" \
-  -o "$ENDPOINT/pkgs_baselines/openvla-oft/logs/train_libero_local1_local_policy_only_wrist_%j.out"
+  -o "/mnt/arc/yygx/pkgs_baselines/openvla-oft/logs/train_libero_local1_local_policy_only_wrist_%j.out"
   -J $JOB_NAME \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node $GPUS $SCRIPT_PATH \
     --is_local_policy $USE_LOCAL_POLICY \

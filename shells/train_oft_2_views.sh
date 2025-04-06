@@ -3,8 +3,8 @@
 # Define variables
 CPUS_PER_TASK=32
 GPUS=8
-LOG_DIR="$ENDPOINT/pkgs_baselines/openvla/logs"
-LOG_FILE="train_libero_local1_%j.out"
+LOG_DIR="$ENDPOINT/pkgs_baselines/openvla-oft/logs"
+LOG_FILE="train_libero_local1_2_view_%j.out"
 JOB_NAME="openvla_libero_local1"
 SCRIPT_PATH="/mnt/arc/yygx/pkgs_baselines/openvla/vla-scripts/finetune.py"
 VLA_PATH="openvla/openvla-7b"
