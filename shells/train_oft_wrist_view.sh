@@ -40,24 +40,25 @@ sbatch \
   -o "tmp.out" \
   -J $JOB_NAME \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node $GPUS $SCRIPT_PATH \
-    --is_local_policy $USE_LOCAL_POLICY \
-    --num_images_in_input $NUM_IMAGES_IN_INPUT \
-    --vla_path $VLA_PATH \
-    --data_root_dir $DATA_ROOT_DIR \
-    --dataset_name $DATASET_NAME \
-    --run_root_dir $RUN_ROOT_DIR \
-    --use_l1_regression $USE_L1_REGRESSION \
-    --use_diffusion $USE_DIFFUSION \
-    --use_film $USE_FILM \
-    --use_proprio $USE_PROPRIO \
-    --batch_size $BATCH_SIZE \
-    --learning_rate $LEARNING_RATE \
-    --num_steps_before_decay $NUM_STEPS_BEFORE_DECAY \
-    --max_steps $MAX_STEPS \
-    --save_freq $SAVE_FREQ \
-    --save_latest_checkpoint_only $SAVE_LATEST_CHECKPOINT_ONLY \
-    --image_aug $IMAGE_AUG \
-    --lora_rank $LORA_RANK \
-    --wandb_entity $WANDB_ENTITY \
-    --wandb_project $WANDB_PROJECT \
-    --run_id_note \"$RUN_ID_NOTE\""
+  --is_local_policy $USE_LOCAL_POLICY \
+  --num_images_in_input $NUM_IMAGES_IN_INPUT \
+  --vla_path $VLA_PATH \
+  --data_root_dir $DATA_ROOT_DIR \
+  --dataset_name $DATASET_NAME \
+  --run_root_dir $RUN_ROOT_DIR \
+  --use_l1_regression $USE_L1_REGRESSION \
+  --use_diffusion $USE_DIFFUSION \
+  --use_film $USE_FILM \
+  --use_proprio $USE_PROPRIO \
+  --batch_size $BATCH_SIZE \
+  --learning_rate $LEARNING_RATE \
+  --num_steps_before_decay $NUM_STEPS_BEFORE_DECAY \
+  --max_steps $MAX_STEPS \
+  --save_freq $SAVE_FREQ \
+  --save_latest_checkpoint_only $SAVE_LATEST_CHECKPOINT_ONLY \
+  --image_aug $IMAGE_AUG \
+  --lora_rank $LORA_RANK \
+  --wandb_entity $WANDB_ENTITY \
+  --wandb_project $WANDB_PROJECT \
+  --run_id_note $RUN_ID_NOTE"
+
