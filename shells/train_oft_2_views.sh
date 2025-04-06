@@ -1,5 +1,8 @@
 #!/bin/zsh
 
+echo "Submitting job..."
+
+
 # Define variables
 CPUS_PER_TASK=32
 GPUS=8
