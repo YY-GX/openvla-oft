@@ -834,7 +834,11 @@ def finetune(cfg: FinetuneConfig) -> None:
     dist.barrier()
 
     # Load processor and VLA
-    processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
+    if cfg.resume:
+        processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True, local_files_only=True)
+    else:
+        processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
+
     vla = AutoModelForVision2Seq.from_pretrained(
         cfg.vla_path,
         torch_dtype=torch.bfloat16,
