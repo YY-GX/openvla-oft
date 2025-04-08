@@ -158,6 +158,7 @@ def initialize_model(cfg: GenerateConfig):
     """Initialize model and associated components."""
     # Load model
     model = get_model(cfg)
+    print(f"[INFO] model.norm_stats: {model.norm_stats}; cfg.task_suite_name: {cfg.task_suite_name};")
 
     # Load proprio projector if needed
     proprio_projector = None
@@ -339,12 +340,15 @@ def run_episode(
     # Setup
     t = 0
     replay_images = []
+    all_obs, all_actions = [], []
     max_steps = TASK_MAX_STEPS[cfg.task_suite_name]
 
     # Run episode
     success = False
     try:
         while t < max_steps + cfg.num_steps_wait:
+            all_obs.append(obs)
+
             # Do nothing for the first few timesteps to let objects stabilize
             if t < cfg.num_steps_wait:
                 obs, reward, done, info = env.step(get_libero_dummy_action(cfg.model_family))
@@ -384,6 +388,9 @@ def run_episode(
 
             # Execute action in environment
             obs, reward, done, info = env.step(action.tolist())
+
+            all_actions.append(action.tolist())
+
             if done:
                 success = True
                 break
@@ -392,7 +399,9 @@ def run_episode(
     except Exception as e:
         log_message(f"Episode error: {e}", log_file)
 
-    return success, replay_images
+    # return success, replay_images
+    return success, replay_images, all_obs, all_actions
+
 
 
 def run_task(
@@ -401,6 +410,7 @@ def run_task(
     task_id: int,
     model,
     resize_size,
+    results_folder,
     processor=None,
     action_head=None,
     proprio_projector=None,
@@ -410,6 +420,8 @@ def run_task(
     log_file=None,
 ):
     """Run evaluation for a single task."""
+    saved_successes, saved_failures = 0, 0
+
     # Get task
     task = task_suite.get_task(task_id)
 
@@ -445,7 +457,7 @@ def run_task(
         log_message(f"Starting episode {task_episodes + 1}...", log_file)
 
         # Run episode
-        success, replay_images = run_episode(
+        success, replay_images, obs_list, actions = run_episode(
             cfg,
             env,
             task_name,
@@ -458,6 +470,19 @@ def run_task(
             noisy_action_projector,
             initial_state,
             log_file,
+        )
+
+
+        # Save rollout for rerun (via encapsulated maybe_save_rollout_obs(...) )
+        saved_successes, saved_failures = maybe_save_rollout_obs(
+            obs_list,
+            actions,
+            task_name,
+            episode_idx,
+            success,
+            results_folder,
+            saved_successes,
+            saved_failures
         )
 
         # Update counters
@@ -534,6 +559,7 @@ def set_robot_local_pose(env, task_name):
     'akita_black_bowl_1_pos', 'akita_black_bowl_1_quat', 'akita_black_bowl_1_to_robot0_eef_pos',
     'akita_black_bowl_1_to_robot0_eef_quat', 'plate_1_pos', 'plate_1_quat', 'plate_1_to_robot0_eef_pos',
     'plate_1_to_robot0_eef_quat', 'robot0_proprio-state', 'object-state']
+    - useful obs keys: ['robot0_joint_pos', 'robot0_gripper_qpos', 'agentview_image', 'robot0_eye_in_hand_image']
     - [(7,), (7,), (7,), (7,), (3,), (4,), (2,), (2,), (256, 256, 3), (256, 256, 3), (3,), (4,), (3,), (4,), (3,), (4,),
     (3,), (4,), (39,), (28,)]
     - [7, 7, 7, 7, 3, 4, 2, 2, 3, 4, 3, 4, 3, 4, 3, 4, 39, 28]
@@ -605,6 +631,73 @@ def obtain_local_pose(task_name):
     print(f"Saved initial states ({all_states.shape[0]} demos) to {init_save_path}")
 
 
+# yy: create new folders
+def get_eval_results_folder(cfg):
+    base = Path("./runs/eval_results")
+    version = 1
+    while (base / f"wrist_only_{cfg.wrist_only}_v{version}").exists():
+        version += 1
+    folder = base / f"wrist_only_{cfg.wrist_only}_v{version}"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+# yy: save succ info
+def save_all_success_rates_to(results_folder, task_success_rates):
+    path = results_folder / "success_rates.pkl"
+    with open(path, "wb") as f:
+        pickle.dump(task_success_rates, f)
+    print(f"[✔] Saved success rates to: {path}")
+
+
+# yy: save rollouts for vis
+def maybe_save_rollout_obs(
+    obs_list,
+    actions,
+    task_name: str,
+    episode_idx: int,
+    success: bool,
+    results_folder: Path,
+    success_count: int,
+    failure_count: int,
+    max_failures=3,
+    max_successes=1
+):
+    if success and success_count >= max_successes:
+        return success_count, failure_count
+    if not success and failure_count >= max_failures:
+        return success_count, failure_count
+
+    # Extract fields
+    joint_states = np.array([o["robot0_joint_pos"] for o in obs_list])
+    gripper_states = np.array([o["robot0_gripper_qpos"] for o in obs_list])
+    agent_imgs = np.array([o["agentview_image"] for o in obs_list])
+    wrist_imgs = np.array([o["robot0_eye_in_hand_image"] for o in obs_list])
+    actions_np = np.array(actions)
+
+    task_dir = results_folder / task_name
+    task_dir.mkdir(parents=True, exist_ok=True)
+
+    tag = "succ" if success else "fail"
+    file_path = task_dir / f"{tag}_{episode_idx}.npz"
+
+    np.savez_compressed(
+        file_path,
+        joint_states=joint_states,
+        gripper_states=gripper_states,
+        agentview_image=agent_imgs,
+        wrist_image=wrist_imgs,
+        actions=actions_np,
+        success=success,
+    )
+    print(f"[💾] Saved rollout to: {file_path}")
+
+    if success:
+        success_count += 1
+    else:
+        failure_count += 1
+    return success_count, failure_count
+
 
 @draccus.wrap()
 def eval_libero(cfg: GenerateConfig) -> float:
@@ -636,6 +729,11 @@ def eval_libero(cfg: GenerateConfig) -> float:
         task_name = task_suite.get_task(task_id).name
         obtain_local_pose(task_name)
 
+
+    results_folder = get_eval_results_folder(cfg)
+    task_success_rates = {}
+
+
     # Start evaluation
     total_episodes, total_successes = 0, 0
     for task_id in tqdm.tqdm(range(num_tasks)):
@@ -645,6 +743,7 @@ def eval_libero(cfg: GenerateConfig) -> float:
             task_id,
             model,
             resize_size,
+            results_folder,
             processor,
             action_head,
             proprio_projector,
@@ -653,6 +752,15 @@ def eval_libero(cfg: GenerateConfig) -> float:
             total_successes,
             log_file,
         )
+
+        task_success_rate = (
+            float(total_successes) / float(total_episodes) if total_episodes > 0 else 0
+        )
+        task_name = task_suite.get_task(task_id).name
+        task_success_rates[task_name] = task_success_rate
+
+    # Save succ info
+    save_all_success_rates_to(results_folder, task_success_rates)
 
     # Calculate final success rate
     final_success_rate = float(total_successes) / float(total_episodes) if total_episodes > 0 else 0
