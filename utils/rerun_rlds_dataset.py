@@ -114,14 +114,17 @@ def main():
         match_found = False
 
         for idx, ep in enumerate(train_set):
-            first_step = ep["steps"][0]
-            if "language_instruction" in first_step:
-                lang = first_step["language_instruction"].numpy().decode("utf-8").strip()
-                if lang == args.language_description.strip():
-                    logging.info(f"Found matching episode at index {idx}")
-                    args.episode_index = idx
-                    match_found = True
-                    break
+            try:
+                first_step = next(iter(ep["steps"]))
+                if "language_instruction" in first_step:
+                    lang = first_step["language_instruction"].numpy().decode("utf-8").strip()
+                    if lang == args.language_description.strip():
+                        logging.info(f"Found matching episode at index {idx}")
+                        args.episode_index = idx
+                        match_found = True
+                        break
+            except Exception as e:
+                logging.warning(f"Skipping episode {idx} due to error: {e}")
 
         if not match_found:
             logging.error(f"No episode found with instruction: \"{args.language_description}\"")
