@@ -2,14 +2,13 @@
 
 import argparse
 import logging
+import time
 from pathlib import Path
 
 import rerun as rr
 import numpy as np
 import tensorflow_datasets as tfds
 import tensorflow as tf
-
-import time
 
 def visualize_rlds(
     data_dir: str,
@@ -62,10 +61,10 @@ def visualize_rlds(
             for idx, val in enumerate(state_np):
                 rr.log(f"state/{idx}", rr.Scalar(val))
 
-            # Extract and log gripper_state
-            gripper_np = state_np[-2:]  # assuming last 2 dims are gripper state
+            gripper_np = state_np[-2:]
             for idx, val in enumerate(gripper_np):
                 rr.log(f"gripper_state/{idx}", rr.Scalar(val))
+
         if "joint_state" in step["observation"]:
             for idx, val in enumerate(step["observation"]["joint_state"].numpy()):
                 rr.log(f"joint_state/{idx}", rr.Scalar(val))
@@ -74,10 +73,15 @@ def visualize_rlds(
             for idx, val in enumerate(step["action"].numpy()):
                 rr.log(f"action/{idx}", rr.Scalar(val))
 
-        # Text (log once)
         if i == 0 and "language_instruction" in step:
             rr.log("instruction", rr.TextDocument(step["language_instruction"].numpy().decode("utf-8")))
 
+    if save:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        rrd_path = output_dir / f"{dataset_name.replace('/', '_')}_episode_{episode_index}.rrd"
+        rr.save(rrd_path)
+        logging.info(f"Saved .rrd file to {rrd_path}")
+        return rrd_path
 
     if mode == "distant" and not save:
         try:
@@ -87,22 +91,13 @@ def visualize_rlds(
         except KeyboardInterrupt:
             logging.info("Interrupted by user. Shutting down.")
 
-
-    if save:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        rrd_path = output_dir / f"{dataset_name.replace('/', '_')}_episode_{episode_index}.rrd"
-        rr.save(rrd_path)
-        logging.info(f"Saved .rrd file to {rrd_path}")
-        return rrd_path
-
-    logging.info("Finished logging. Open Rerun viewer to explore.")
-
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--data-dir", type=str, required=True, help="Path to local TFDS data_dir")
     parser.add_argument("--dataset-name", type=str, required=True, help="Name of dataset folder (e.g. libero_local1)")
-    parser.add_argument("--episode-index", type=int, required=True, help="Which episode to visualize")
+    parser.add_argument("--episode-index", type=int, default=None, help="Which episode to visualize (ignored if --language-description is set)")
+    parser.add_argument("--language-description", type=str, default=None, help="Language instruction to match episode (overrides episode index if set)")
     parser.add_argument("--output-dir", type=Path, default=None, help="Directory to save .rrd file (if --save is set)")
     parser.add_argument("--mode", type=str, default="local", choices=["local", "distant"], help="Viewer mode")
     parser.add_argument("--web-port", type=int, default=9090, help="Web UI port for distant rerun")
@@ -110,6 +105,31 @@ def main():
     parser.add_argument("--save", action="store_true", help="Save .rrd file instead of spawning viewer")
 
     args = parser.parse_args()
+
+    # Handle language description filtering
+    if args.language_description:
+        logging.info(f"Searching for episode with instruction: \"{args.language_description}\"")
+        ds = tfds.load(args.dataset_name, data_dir=args.data_dir)
+        train_set = list(ds["train"])
+        match_found = False
+
+        for idx, ep in enumerate(train_set):
+            first_step = ep["steps"][0]
+            if "language_instruction" in first_step:
+                lang = first_step["language_instruction"].numpy().decode("utf-8").strip()
+                if lang == args.language_description.strip():
+                    logging.info(f"Found matching episode at index {idx}")
+                    args.episode_index = idx
+                    match_found = True
+                    break
+
+        if not match_found:
+            logging.error(f"No episode found with instruction: \"{args.language_description}\"")
+            return
+
+    if args.episode_index is None:
+        raise ValueError("You must specify either --episode-index or --language-description")
+
     visualize_rlds(
         data_dir=args.data_dir,
         dataset_name=args.dataset_name,
