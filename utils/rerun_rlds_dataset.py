@@ -58,8 +58,14 @@ def visualize_rlds(
 
         # Vectors
         if "state" in step["observation"]:
-            for idx, val in enumerate(step["observation"]["state"].numpy()):
+            state_np = step["observation"]["state"].numpy()
+            for idx, val in enumerate(state_np):
                 rr.log(f"state/{idx}", rr.Scalar(val))
+
+            # Extract and log gripper_state
+            gripper_np = state_np[-2:]  # assuming last 2 dims are gripper state
+            for idx, val in enumerate(gripper_np):
+                rr.log(f"gripper_state/{idx}", rr.Scalar(val))
         if "joint_state" in step["observation"]:
             for idx, val in enumerate(step["observation"]["joint_state"].numpy()):
                 rr.log(f"joint_state/{idx}", rr.Scalar(val))
