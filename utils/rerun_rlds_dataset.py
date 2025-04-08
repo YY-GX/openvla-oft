@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import time
 from pathlib import Path
 
 import rerun as rr
@@ -67,7 +66,7 @@ def visualize_rlds(
             for idx, val in enumerate(step["action"].numpy()):
                 rr.log(f"action/{idx}", rr.Scalar(val))
 
-        # Text (instruction stays the same across episode)
+        # Text (log once)
         if i == 0 and "language_instruction" in step:
             rr.log("instruction", rr.TextDocument(step["language_instruction"].numpy().decode("utf-8")))
 
@@ -75,14 +74,10 @@ def visualize_rlds(
         output_dir.mkdir(parents=True, exist_ok=True)
         rrd_path = output_dir / f"{dataset_name.replace('/', '_')}_episode_{episode_index}.rrd"
         rr.save(rrd_path)
+        logging.info(f"Saved .rrd file to {rrd_path}")
         return rrd_path
 
-    elif mode == "distant":
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("Ctrl-C received. Exiting.")
+    logging.info("Finished logging. Open Rerun viewer to explore.")
 
 def main():
     parser = argparse.ArgumentParser()
