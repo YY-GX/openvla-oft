@@ -21,7 +21,6 @@ from libero.libero import benchmark
 import h5py
 import pickle
 
-
 import wandb
 
 # Append current directory so that interpreter can find experiments.robot
@@ -60,6 +59,7 @@ class TaskSuite(str, Enum):
     LIBERO_GOAL = "libero_goal"
     LIBERO_10 = "libero_10"
     LIBERO_90 = "libero_90"
+    LOCAL1 = "local1"
 
 
 # Define max steps for each task suite
@@ -69,6 +69,7 @@ TASK_MAX_STEPS = {
     TaskSuite.LIBERO_GOAL: 300,  # longest training demo has 270 steps
     TaskSuite.LIBERO_10: 520,  # longest training demo has 505 steps
     TaskSuite.LIBERO_90: 400,  # longest training demo has 373 steps
+    TaskSuite.LOCAL1: 400,  # longest training demo has 373 steps
 }
 
 
