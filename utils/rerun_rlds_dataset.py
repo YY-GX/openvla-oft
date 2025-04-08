@@ -9,6 +9,8 @@ import numpy as np
 import tensorflow_datasets as tfds
 import tensorflow as tf
 
+import time
+
 def visualize_rlds(
     data_dir: str,
     dataset_name: str,
@@ -69,6 +71,16 @@ def visualize_rlds(
         # Text (log once)
         if i == 0 and "language_instruction" in step:
             rr.log("instruction", rr.TextDocument(step["language_instruction"].numpy().decode("utf-8")))
+
+
+    if mode == "distant" and not save:
+        try:
+            logging.info(f"Rerun server running at ws://localhost:{ws_port} — connect from local machine.")
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logging.info("Interrupted by user. Shutting down.")
+
 
     if save:
         output_dir.mkdir(parents=True, exist_ok=True)
