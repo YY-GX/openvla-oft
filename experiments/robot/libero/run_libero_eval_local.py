@@ -460,7 +460,7 @@ def run_task(
         # Handle initial state
         if cfg.initial_states_path == "DEFAULT":
             # Use default initial state
-            initial_state = initial_states[episode_idx]
+            initial_state = initial_states[episode_idx % len(initial_states)]
         else:
             # Get keys for fetching initial episode state from JSON
             initial_states_task_key = task_description.replace(" ", "_")
