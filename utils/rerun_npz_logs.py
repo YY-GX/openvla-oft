@@ -55,7 +55,7 @@ def find_npz(results_folder: Path, task_name: str, preferred: str = "succ") -> P
     files = sorted(task_dir.glob(f"{preferred}_*.npz"))
     if not files:
         raise FileNotFoundError(f"No '{preferred}' npz files found in {task_dir}")
-    return files[0]
+    return files[random.choice(list(range(len(files))))]
 
 
 def main():
@@ -69,7 +69,7 @@ def main():
     parser.add_argument("--name", type=str, default="rollout", help="Name of the Rerun stream")
     args = parser.parse_args()
 
-    file_path = find_npz(args.results_folder, args.task_name, f"{args.preferred}_{random.choice([0, 1, 2])}.npz")
+    file_path = find_npz(args.results_folder, args.task_name, args.preferred)
     print(f"[INFO] Visualizing: {file_path}")
 
     visualize_npz_rollout(
