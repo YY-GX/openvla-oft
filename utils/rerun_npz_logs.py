@@ -24,7 +24,7 @@ def visualize_npz_rollout(
     for i in range(num_frames):
         rr.set_time_sequence("frame_index", i)
 
-        rr.log("camera/agentview", rr.Image(data["agentview_image"][i]))
+        rr.log("camera/agentview", rr.Image(data["agentview_image"][i][::-1, :, :]))
         rr.log("camera/wristview", rr.Image(data["wrist_image"][i]))
 
         # print(data["actions"].shape)
