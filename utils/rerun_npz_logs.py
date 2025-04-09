@@ -27,11 +27,11 @@ def visualize_npz_rollout(
         rr.log("camera/agentview", rr.Image(data["agentview_image"][i][::-1, :, :]))
         rr.log("camera/wristview", rr.Image(data["wrist_image"][i]))
 
-        print(data["actions"].shape)
-        print(data["joint_states"].shape)
+        # print(data["actions"].shape)
+        # print(data["joint_states"].shape)
 
         if "actions" in data:
-            if data["actions"].shape[0] != 0:
+            if data["actions"].shape[0] != 0 and (i < data["actions"].shape[0]):
                 for j, val in enumerate(data["actions"][i]):
                     rr.log(f"action/{j}", rr.Scalar(val))
 
