@@ -1,8 +1,10 @@
 import argparse
+import random
 from pathlib import Path
 import numpy as np
 import rerun as rr
 import time
+import random
 
 def visualize_npz_rollout(
     file_path: Path,
@@ -58,16 +60,16 @@ def find_npz(results_folder: Path, task_name: str, preferred: str = "succ") -> P
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results-folder", type=Path, default=Path("./runs/eval_results"), help="Base eval results folder")
+    parser.add_argument("--results-folder", type=Path, default=Path("./runs/eval_results/wrist_only_True_v2/"), help="Base eval results folder")
     parser.add_argument("--task-name", type=str, required=True, help="Task name (e.g. put_bowl)")
-    parser.add_argument("--preferred", type=str, choices=["succ", "fail"], default="succ", help="Which type of episode to load")
-    parser.add_argument("--mode", type=str, choices=["local", "distant"], default="local", help="Viewer mode")
+    parser.add_argument("--preferred", type=str, choices=["succ", "fail"], default="fail", help="Which type of episode to load")
+    parser.add_argument("--mode", type=str, choices=["local", "distant"], default="distant", help="Viewer mode")
     parser.add_argument("--web-port", type=int, default=9090)
     parser.add_argument("--ws-port", type=int, default=9087)
     parser.add_argument("--name", type=str, default="rollout", help="Name of the Rerun stream")
     args = parser.parse_args()
 
-    file_path = find_npz(args.results_folder, args.task_name, args.preferred)
+    file_path = find_npz(args.results_folder, args.task_name, f"{args.preferred}_{random.choice([0, 1, 2])}.npz")
     print(f"[INFO] Visualizing: {file_path}")
 
     visualize_npz_rollout(
