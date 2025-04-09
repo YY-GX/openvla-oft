@@ -31,8 +31,9 @@ def visualize_npz_rollout(
         print(data["joint_states"].shape)
 
         if "actions" in data:
-            for j, val in enumerate(data["actions"][i]):
-                rr.log(f"action/{j}", rr.Scalar(val))
+            if data["actions"].shape[0] != 0:
+                for j, val in enumerate(data["actions"][i]):
+                    rr.log(f"action/{j}", rr.Scalar(val))
 
         if "joint_states" in data:
             for j, val in enumerate(data["joint_states"][i]):
