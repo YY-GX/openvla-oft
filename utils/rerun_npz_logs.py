@@ -28,7 +28,7 @@ def visualize_npz_rollout(
         rr.log("camera/wristview", rr.Image(data["wrist_image"][i]))
 
         # print(data["actions"].shape)
-        print(data["joint_states"].shape)
+        # print(data["joint_states"].shape)
 
         if "actions" in data:
             if data["actions"].shape[0] != 0:
