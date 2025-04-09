@@ -385,7 +385,6 @@ def run_episode(
 
             # Prepare observation
             observation, img = prepare_observation(obs, resize_size, cfg)
-            print(img.shape)
             replay_images.append(img)
 
             # If action queue is empty, requery model
