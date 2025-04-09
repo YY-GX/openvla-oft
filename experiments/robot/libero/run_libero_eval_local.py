@@ -290,6 +290,8 @@ def prepare_observation(obs, resize_size, cfg):
                 (obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])
             ),
         }
+
+        img = wrist_img
     else:
         # Get preprocessed images
         img = get_libero_image(obs)
