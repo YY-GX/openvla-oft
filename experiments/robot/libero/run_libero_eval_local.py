@@ -20,8 +20,10 @@ import tqdm
 from libero.libero import benchmark
 import h5py
 import pickle
+import traceback
 
 import wandb
+
 
 # Append current directory so that interpreter can find experiments.robot
 sys.path.append("../..")
@@ -384,6 +386,7 @@ def run_episode(
 
             # Prepare observation
             observation, img = prepare_observation(obs, resize_size, cfg)
+            print(img.shape)
             replay_images.append(img)
 
             # If action queue is empty, requery model
@@ -419,7 +422,10 @@ def run_episode(
             t += 1
 
     except Exception as e:
-        log_message(f"Episode error: {e}", log_file)
+        # log_message(f"Episode error: {e}", log_file)
+        error_details = traceback.format_exc()
+        log_message(f"Episode error:\n{error_details}", log_file)
+        exit(1)
 
     # return success, replay_images
     return success, replay_images, all_obs, all_actions
