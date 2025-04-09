@@ -378,6 +378,8 @@ def run_episode(
                 if t == cfg.num_steps_wait:
                     # yy: special initialization: make robot move to local pose
                     # yy: I make this set_pose after dummy actions, cuz dummy actions can cause a bit movement.
+                    if cfg.is_oss:
+                        task_name = task_name.split("_with_")[0]
                     obs = set_robot_local_pose(env, task_name)
                 continue
 
@@ -759,6 +761,8 @@ def eval_libero(cfg: GenerateConfig) -> float:
     # yy: save all local inits
     for task_id in range(num_tasks):
         task_name = task_suite.get_task(task_id).name
+        if cfg.is_oss:
+            task_name = task_name.split("_with_")[0]
         obtain_local_pose(task_name)
 
 
