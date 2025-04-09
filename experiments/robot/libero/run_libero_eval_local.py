@@ -134,9 +134,7 @@ class GenerateConfig:
     # Locality
     #################################################################################################################
     wrist_only: bool = False                         # TODO: change to True while using it
-    # TODO:
-    #  1. Make initial pose at the initial state of local demos [done]
-    #  2. Change observation space [done]
+    is_oss: bool = False                             # Whether to OSS happens TODO: change to True while using it
 
 
 
@@ -229,7 +227,7 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
 def setup_logging(cfg: GenerateConfig):
     """Set up logging to file and optionally to wandb."""
     # Create run ID
-    run_id = f"EVAL-{cfg.task_suite_name}-{cfg.model_family}-{DATE_TIME}"
+    run_id = f"EVAL-{cfg.task_suite_name}-IS_OSS_{cfg.is_oss}-{cfg.model_family}-{DATE_TIME}"
     if cfg.run_id_note is not None:
         run_id += f"--{cfg.run_id_note}"
 
@@ -661,9 +659,9 @@ def obtain_local_pose(task_name):
 def get_eval_results_folder(cfg):
     base = Path("./runs/eval_results")
     version = 1
-    while (base / f"wrist_only_{cfg.wrist_only}_v{version}").exists():
+    while (base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}").exists():
         version += 1
-    folder = base / f"wrist_only_{cfg.wrist_only}_v{version}"
+    folder = base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
@@ -750,7 +748,10 @@ def eval_libero(cfg: GenerateConfig) -> float:
 
     # Initialize LIBERO task suite
     benchmark_dict = benchmark.get_benchmark_dict()
-    task_suite = benchmark_dict[cfg.task_suite_name]()
+    if cfg.is_oss:
+        task_suite = benchmark_dict[f"ch1_{cfg.task_suite_name}"]()
+    else:
+        task_suite = benchmark_dict[cfg.task_suite_name]()
     num_tasks = task_suite.n_tasks
 
     log_message(f"Task suite: {cfg.task_suite_name}", log_file)
