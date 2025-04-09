@@ -27,7 +27,7 @@ def visualize_npz_rollout(
         rr.log("camera/agentview", rr.Image(data["agentview_image"][i]))
         rr.log("camera/wristview", rr.Image(data["wrist_image"][i]))
 
-        print(data["actions"].shape)
+        # print(data["actions"].shape)
         print(data["joint_states"].shape)
 
         if "actions" in data:
