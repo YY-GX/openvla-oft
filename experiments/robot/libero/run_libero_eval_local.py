@@ -278,7 +278,6 @@ def load_initial_states(cfg: GenerateConfig, task_suite, task_id: int, log_file=
 def prepare_observation(obs, resize_size, cfg):
     """Prepare observation for policy input."""
     if cfg.wrist_only:
-        cfg.num_images_in_input = 1
         # Get preprocessed images
         wrist_img = get_libero_wrist_image(obs)
 
@@ -730,6 +729,11 @@ def maybe_save_rollout_obs(
 @draccus.wrap()
 def eval_libero(cfg: GenerateConfig) -> float:
     """Main function to evaluate a trained policy on LIBERO benchmark tasks."""
+
+    # yy: modify config based on existing param
+    if cfg.wrist_only:
+        cfg.num_images_in_input = 1
+
     # Validate configuration
     validate_config(cfg)
 
