@@ -51,7 +51,7 @@ def visualize_npz_rollout(
             print("[INFO] Server stopped.")
 
 
-def find_npz(results_folder: Path, task_name: str, preferred: str = "succ") -> Path:
+def find_npz(results_folder: Path, task_name: str, preferred: str = "succ", fail_idx=None) -> Path:
     task_dir = results_folder / task_name
     if not task_dir.exists():
         raise FileNotFoundError(f"Task directory not found: {task_dir}")
@@ -59,7 +59,10 @@ def find_npz(results_folder: Path, task_name: str, preferred: str = "succ") -> P
     files = sorted(task_dir.glob(f"{preferred}_*.npz"))
     if not files:
         raise FileNotFoundError(f"No '{preferred}' npz files found in {task_dir}")
-    return files[random.choice(list(range(len(files))))]
+    if fail_idx:
+        return files[fail_idx]
+    else:
+        return files[random.choice(list(range(len(files))))]
 
 
 def main():
@@ -67,13 +70,14 @@ def main():
     parser.add_argument("--results-folder", type=Path, default=Path("./runs/eval_results/wrist_only_True_v2/"), help="Base eval results folder")
     parser.add_argument("--task-name", type=str, required=True, help="Task name (e.g. put_bowl)")
     parser.add_argument("--preferred", type=str, choices=["succ", "fail"], default="fail", help="Which type of episode to load")
+    parser.add_argument("--fail-idx", type=int, default=None,  help="Which episode to load")
     parser.add_argument("--mode", type=str, choices=["local", "distant"], default="distant", help="Viewer mode")
     parser.add_argument("--web-port", type=int, default=9090)
     parser.add_argument("--ws-port", type=int, default=9087)
     parser.add_argument("--name", type=str, default="rollout", help="Name of the Rerun stream")
     args = parser.parse_args()
 
-    file_path = find_npz(args.results_folder, args.task_name, args.preferred)
+    file_path = find_npz(args.results_folder, args.task_name, args.preferred, args.fail_idx)
     print(f"[INFO] Visualizing: {file_path}")
 
     visualize_npz_rollout(
