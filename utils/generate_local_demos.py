@@ -43,7 +43,7 @@ def extract_and_save_initial_states(local_data_dict, save_path):
         obs = local_data_dict['data'][demo_key]['obs']
         joint = obs['joint_states'][0]
         gripper = obs['gripper_states'][0]
-        extra_state = obs['states'][0]
+        extra_state = local_data_dict['data'][demo_key]['states'][0]
         state = np.concatenate([joint, gripper, extra_state])
         all_states.append(state)
 

@@ -15,7 +15,6 @@ def load_hdf5_to_dict(file_path):
             elif isinstance(item, h5py.Group):
                 result[key] = recursively_extract(item)
         return result
-
     with h5py.File(file_path, 'r') as file:
         return recursively_extract(file)
 
