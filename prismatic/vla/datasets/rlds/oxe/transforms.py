@@ -926,6 +926,7 @@ OXE_STANDARDIZATION_TRANSFORMS = {
     "libero_10_no_noops": libero_dataset_transform,
     "libero_4_task_suites_no_noops": libero_dataset_transform,
     "libero_local1": libero_dataset_transform,
+    "libero_local2": libero_dataset_transform,
     ### ALOHA fine-tuning datasets
     "aloha1_fold_shorts_20_demos": aloha_dataset_transform,
     "aloha1_fold_shirt_30_demos": aloha_dataset_transform,
