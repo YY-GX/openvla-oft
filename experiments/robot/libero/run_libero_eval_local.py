@@ -133,12 +133,178 @@ class GenerateConfig:
     #################################################################################################################
     # Locality
     #################################################################################################################
+    local_demo_and_inits_path: str = "/mnt/arc/yygx/pkgs_baselines/LIBERO/libero/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3/"
+                                                     # Path to save local demos and initial states
     wrist_only: bool = False                         # TODO: change to True while using it
     is_oss: bool = False                             # Whether to OSS happens TODO: change to True while using it
 
 
 
     # fmt: on
+
+
+
+
+
+
+
+######################################################################################################################
+################################################## yy added methods ##################################################
+
+def set_local_inits(cfg, env, task_name):
+    """
+    - For task_name: KITCHEN_SCENE1_put_the_black_bowl_on_the_plate
+    - obs.keys() = ['robot0_joint_pos', 'robot0_joint_pos_cos', 'robot0_joint_pos_sin', 'robot0_joint_vel', 'robot0_eef_pos',
+    'robot0_eef_quat', 'robot0_gripper_qpos', 'robot0_gripper_qvel', 'agentview_image', 'robot0_eye_in_hand_image',
+    'akita_black_bowl_1_pos', 'akita_black_bowl_1_quat', 'akita_black_bowl_1_to_robot0_eef_pos',
+    'akita_black_bowl_1_to_robot0_eef_quat', 'plate_1_pos', 'plate_1_quat', 'plate_1_to_robot0_eef_pos',
+    'plate_1_to_robot0_eef_quat', 'robot0_proprio-state', 'object-state']
+    - useful obs keys: ['robot0_joint_pos', 'robot0_gripper_qpos', 'agentview_image', 'robot0_eye_in_hand_image']
+    - [(7,), (7,), (7,), (7,), (3,), (4,), (2,), (2,), (256, 256, 3), (256, 256, 3), (3,), (4,), (3,), (4,), (3,), (4,),
+    (3,), (4,), (39,), (28,)]
+    - [7, 7, 7, 7, 3, 4, 2, 2, 3, 4, 3, 4, 3, 4, 3, 4, 39, 28]
+    - At least these are in the env_state: ['robot0_joint_pos', 'robot0_joint_vel', 'robot0_gripper_qpos',
+    'robot0_gripper_qvel', 'akita_black_bowl_1_pos', 'akita_black_bowl_1_quat', 'plate_1_pos', 'plate_1_quat']
+    (i.e., robot joint pos/vel + gripper pos/vel + obj pos/vel)
+
+    Debug:
+    - I found that even if I set the joint/gripper vel as 0, the gripper still rotate for a bit angel. My guess: this is
+    caused by gravity or sth. in sim.
+    """
+    if cfg.is_oss:
+        task_name = task_name.split("_with_")[0]
+    init_path = os.path.join(cfg.local_demo_and_inits_path, f"{task_name}_local_init.init")
+    with open(init_path, 'rb') as f:
+        all_states = pickle.load(f)  # shape: [num_demos, 9+*]
+    idx = np.random.randint(len(all_states))
+    sim_state = all_states[idx]
+
+    # sampled_robot_local_state = all_states[idx]  # shape: [9,]
+    #
+    # sim_state = env.get_sim_state().copy()  # sim_state -> [77,]
+    # sim_state[1:10] = sampled_robot_local_state
+    # # set joint and gripper vel as 0
+    # sim_state[34:36] = np.zeros([2])  # gripper vel
+    # sim_state[27:34] = np.zeros([7])  # joint vel
+
+    obs = env.set_init_state(sim_state)
+    return obs
+
+# yy: commented cuz not used
+# def obtain_local_pose(task_name):
+#     """
+#     Extracts the initial joint_states and gripper_states from all demos
+#     and saves them into an `.init` file for the given task.
+#     Resulting state dim: 9 (7 joint + 2 gripper)
+#     ---
+#     Important information:
+#     1. gripper open -> close: -1 -> 1
+#     2. to access action: data_dict['data']['demo_0']['actions'] [116, 7]
+#     3. to access obs: data_dict['data']['demo_0']['obs']['agentview_rgb'] [116, 256, 256, 3]
+#     4. to access obs: data_dict['data']['demo_0']['obs']['eye_in_hand_rgb'] [116, 256, 256, 3]
+#     5. to access ee: data_dict['data']['demo_0']['obs']['ee_pos'] [116, 3]; data_dict['data']['demo_0']['obs']['ee_ori'] [116, 3]
+#     6. to access joint: data_dict['data']['demo_0']['obs']['joint_states'] [116, 7]
+#     6. to access gripper: data_dict['data']['demo_0']['obs']['gripper_states'] [116, 2]
+#     """
+#     base_path = "/mnt/arc/yygx/pkgs_baselines/LIBERO/libero/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3"
+#     demo_path = os.path.join(base_path, f"{task_name}_demo.hdf5")
+#     init_save_path = os.path.join("local_inits", f"{task_name}_local_init.init")
+#     os.makedirs("local_inits", exist_ok=True)
+#
+#     # Skip if already exists
+#     if os.path.exists(init_save_path):
+#         print(f"Init already exists for {task_name}, skipping.")
+#         return
+#
+#     all_states = []
+#
+#     with h5py.File(demo_path, 'r') as f:
+#         for demo_key in f['data'].keys():
+#             obs = f['data'][demo_key]['obs']
+#             joint = obs['joint_states'][0]  # shape [7]
+#             gripper = obs['gripper_states'][0]  # shape [2]
+#             state = np.concatenate([joint, gripper])  # shape [9]
+#             all_states.append(state)
+#
+#     all_states = np.array(all_states)  # shape [num_demos, 9]
+#
+#     # Save as a pickle file
+#     with open(init_save_path, 'wb') as f:
+#         pickle.dump(all_states, f)
+#
+#     print(f"Saved initial states ({all_states.shape[0]} demos) to {init_save_path}")
+
+
+# yy: create new folders
+def get_eval_results_folder(cfg):
+    base = Path("./runs/eval_results")
+    version = 1
+    while (base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}").exists():
+        version += 1
+    folder = base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+# yy: save succ info
+def save_all_success_rates_to(results_folder, task_success_rates):
+    path = results_folder / "success_rates.pkl"
+    with open(path, "wb") as f:
+        pickle.dump(task_success_rates, f)
+    print(f"[✔] Saved success rates to: {path}")
+
+
+# yy: save rollouts for vis
+def maybe_save_rollout_obs(
+        obs_list,
+        actions,
+        task_name: str,
+        episode_idx: int,
+        success: bool,
+        results_folder: Path,
+        success_count: int,
+        failure_count: int,
+        max_failures=3,
+        max_successes=1
+):
+    if success and success_count >= max_successes:
+        return success_count, failure_count
+    if not success and failure_count >= max_failures:
+        return success_count, failure_count
+
+    # Extract fields
+    joint_states = np.array([o["robot0_joint_pos"] for o in obs_list])
+    gripper_states = np.array([o["robot0_gripper_qpos"] for o in obs_list])
+    agent_imgs = np.array([o["agentview_image"] for o in obs_list])
+    wrist_imgs = np.array([o["robot0_eye_in_hand_image"] for o in obs_list])
+    actions_np = np.array(actions)
+
+    task_dir = results_folder / task_name
+    task_dir.mkdir(parents=True, exist_ok=True)
+
+    tag = "succ" if success else "fail"
+    file_path = task_dir / f"{tag}_{episode_idx}.npz"
+
+    np.savez_compressed(
+        file_path,
+        joint_states=joint_states,
+        gripper_states=gripper_states,
+        agentview_image=agent_imgs,
+        wrist_image=wrist_imgs,
+        actions=actions_np,
+        success=success,
+    )
+    print(f"[💾] Saved rollout to: {file_path}")
+
+    if success:
+        success_count += 1
+    else:
+        failure_count += 1
+    return success_count, failure_count
+
+
+################################################## yy added methods ##################################################
+######################################################################################################################
 
 
 def validate_config(cfg: GenerateConfig) -> None:
@@ -344,6 +510,7 @@ def run_episode(
     env.reset()
 
     # Set initial state if provided
+    # yy: could delete these cuz no need to run dummy actions
     if initial_state is not None:
         obs = env.set_init_state(initial_state)
     else:
@@ -367,21 +534,26 @@ def run_episode(
     # Run episode
     success = False
     try:
+        # yy: I delete these cuz no need to run dummy actions
+        # while t < max_steps + cfg.num_steps_wait:
+        #     all_obs.append(obs)
+        #
+        #     # Do nothing for the first few timesteps to let objects stabilize
+        #     if t < cfg.num_steps_wait:
+        #         obs, reward, done, info = env.step(get_libero_dummy_action(cfg.model_family))
+        #         t += 1
+        #
+        #         if t == cfg.num_steps_wait:
+        #             # yy: special initialization: make robot move to local pose
+        #             # yy: I make this set_pose after dummy actions, cuz dummy actions can cause a bit movement.
+        #             if cfg.is_oss:
+        #                 task_name = task_name.split("_with_")[0]
+        #             obs = set_robot_local_pose(cfg, env, task_name)
+        #         continue
+
         while t < max_steps + cfg.num_steps_wait:
             all_obs.append(obs)
-
-            # Do nothing for the first few timesteps to let objects stabilize
-            if t < cfg.num_steps_wait:
-                obs, reward, done, info = env.step(get_libero_dummy_action(cfg.model_family))
-                t += 1
-
-                if t == cfg.num_steps_wait:
-                    # yy: special initialization: make robot move to local pose
-                    # yy: I make this set_pose after dummy actions, cuz dummy actions can cause a bit movement.
-                    if cfg.is_oss:
-                        task_name = task_name.split("_with_")[0]
-                    obs = set_robot_local_pose(env, task_name)
-                continue
+            obs = set_local_inits(cfg, env, task_name)
 
             # Prepare observation
             observation, img = prepare_observation(obs, resize_size, cfg)
@@ -547,184 +719,6 @@ def run_task(
     return total_episodes, total_successes
 
 
-
-# TO DELETE
-def initialize_robot_state(crr_state, robot_init_sim_state):
-    # 0: timestep; 1-40: states; 41-76: vel_info;
-    modified_state = crr_state.copy()
-    # initial robot states
-    modified_state[1:10] = robot_init_sim_state[1:10]
-    # zeroize all velocity related states
-    modified_state[41:] = robot_init_sim_state[41:]
-    return modified_state
-
-
-# TO DELETE
-def reset_env_init_states(env, obs, info, init_states_ls, env_num, task_indexes):
-    obs_ls = []
-    for k in range(env_num):
-        if info[k]['is_init']:
-            # next task's initial state is extracted,
-            #  and then passed to be modifed as I only wanna change robot related state
-            init_state_ = initialize_robot_state(env.get_sim_state()[k], init_states_ls[task_indexes[k]][k, :])[
-                None, ...]
-            obs_ = env.set_init_state(init_state_, k)
-            obs_ls.append(obs_[0])
-        else:
-            obs_ = obs[k]
-            obs_ls.append(obs_)
-    obs = np.stack(obs_ls)
-    return obs
-
-
-def set_robot_local_pose(env, task_name):
-    """
-    - For task_name: KITCHEN_SCENE1_put_the_black_bowl_on_the_plate
-    - obs.keys() = ['robot0_joint_pos', 'robot0_joint_pos_cos', 'robot0_joint_pos_sin', 'robot0_joint_vel', 'robot0_eef_pos',
-    'robot0_eef_quat', 'robot0_gripper_qpos', 'robot0_gripper_qvel', 'agentview_image', 'robot0_eye_in_hand_image',
-    'akita_black_bowl_1_pos', 'akita_black_bowl_1_quat', 'akita_black_bowl_1_to_robot0_eef_pos',
-    'akita_black_bowl_1_to_robot0_eef_quat', 'plate_1_pos', 'plate_1_quat', 'plate_1_to_robot0_eef_pos',
-    'plate_1_to_robot0_eef_quat', 'robot0_proprio-state', 'object-state']
-    - useful obs keys: ['robot0_joint_pos', 'robot0_gripper_qpos', 'agentview_image', 'robot0_eye_in_hand_image']
-    - [(7,), (7,), (7,), (7,), (3,), (4,), (2,), (2,), (256, 256, 3), (256, 256, 3), (3,), (4,), (3,), (4,), (3,), (4,),
-    (3,), (4,), (39,), (28,)]
-    - [7, 7, 7, 7, 3, 4, 2, 2, 3, 4, 3, 4, 3, 4, 3, 4, 39, 28]
-    - At least these are in the env_state: ['robot0_joint_pos', 'robot0_joint_vel', 'robot0_gripper_qpos',
-    'robot0_gripper_qvel', 'akita_black_bowl_1_pos', 'akita_black_bowl_1_quat', 'plate_1_pos', 'plate_1_quat']
-    (i.e., robot joint pos/vel + gripper pos/vel + obj pos/vel)
-
-    Debug:
-    - I found that even if I set the joint/gripper vel as 0, the gripper still rotate for a bit angel. My guess: this is
-    caused by gravity or sth. in sim.
-    """
-    init_path = os.path.join("local_inits", f"{task_name}_local_init.init")
-    with open(init_path, 'rb') as f:
-        all_states = pickle.load(f)  # shape: [num_demos, 9]
-    idx = np.random.randint(len(all_states))
-    sampled_robot_local_state = all_states[idx]  # shape: [9,]
-
-    sim_state = env.get_sim_state().copy()  # sim_state -> [77,]
-    sim_state[1:10] = sampled_robot_local_state
-    # set joint and gripper vel as 0
-    sim_state[34:36] = np.zeros([2])  # gripper vel
-    sim_state[27:34] = np.zeros([7])  # joint vel
-    obs = env.set_init_state(sim_state)
-
-    return obs
-
-
-def obtain_local_pose(task_name):
-    """
-    Extracts the initial joint_states and gripper_states from all demos
-    and saves them into an `.init` file for the given task.
-    Resulting state dim: 9 (7 joint + 2 gripper)
-    ---
-    Important information:
-    1. gripper open -> close: -1 -> 1
-    2. to access action: data_dict['data']['demo_0']['actions'] [116, 7]
-    3. to access obs: data_dict['data']['demo_0']['obs']['agentview_rgb'] [116, 256, 256, 3]
-    4. to access obs: data_dict['data']['demo_0']['obs']['eye_in_hand_rgb'] [116, 256, 256, 3]
-    5. to access ee: data_dict['data']['demo_0']['obs']['ee_pos'] [116, 3]; data_dict['data']['demo_0']['obs']['ee_ori'] [116, 3]
-    6. to access joint: data_dict['data']['demo_0']['obs']['joint_states'] [116, 7]
-    6. to access gripper: data_dict['data']['demo_0']['obs']['gripper_states'] [116, 2]
-    """
-    base_path = "/mnt/arc/yygx/pkgs_baselines/LIBERO/libero/datasets/local_demos_libero_90_openvla_no_noops_pre_3"
-    demo_path = os.path.join(base_path, f"{task_name}_demo.hdf5")
-    init_save_path = os.path.join("local_inits", f"{task_name}_local_init.init")
-    os.makedirs("local_inits", exist_ok=True)
-
-    # Skip if already exists
-    if os.path.exists(init_save_path):
-        print(f"Init already exists for {task_name}, skipping.")
-        return
-
-    all_states = []
-
-    with h5py.File(demo_path, 'r') as f:
-        for demo_key in f['data'].keys():
-            obs = f['data'][demo_key]['obs']
-            joint = obs['joint_states'][0]  # shape [7]
-            gripper = obs['gripper_states'][0]  # shape [2]
-            state = np.concatenate([joint, gripper])  # shape [9]
-            all_states.append(state)
-
-    all_states = np.array(all_states)  # shape [num_demos, 9]
-
-    # Save as a pickle file
-    with open(init_save_path, 'wb') as f:
-        pickle.dump(all_states, f)
-
-    print(f"Saved initial states ({all_states.shape[0]} demos) to {init_save_path}")
-
-
-# yy: create new folders
-def get_eval_results_folder(cfg):
-    base = Path("./runs/eval_results")
-    version = 1
-    while (base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}").exists():
-        version += 1
-    folder = base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}"
-    folder.mkdir(parents=True, exist_ok=True)
-    return folder
-
-
-# yy: save succ info
-def save_all_success_rates_to(results_folder, task_success_rates):
-    path = results_folder / "success_rates.pkl"
-    with open(path, "wb") as f:
-        pickle.dump(task_success_rates, f)
-    print(f"[✔] Saved success rates to: {path}")
-
-
-# yy: save rollouts for vis
-def maybe_save_rollout_obs(
-    obs_list,
-    actions,
-    task_name: str,
-    episode_idx: int,
-    success: bool,
-    results_folder: Path,
-    success_count: int,
-    failure_count: int,
-    max_failures=3,
-    max_successes=1
-):
-    if success and success_count >= max_successes:
-        return success_count, failure_count
-    if not success and failure_count >= max_failures:
-        return success_count, failure_count
-
-    # Extract fields
-    joint_states = np.array([o["robot0_joint_pos"] for o in obs_list])
-    gripper_states = np.array([o["robot0_gripper_qpos"] for o in obs_list])
-    agent_imgs = np.array([o["agentview_image"] for o in obs_list])
-    wrist_imgs = np.array([o["robot0_eye_in_hand_image"] for o in obs_list])
-    actions_np = np.array(actions)
-
-    task_dir = results_folder / task_name
-    task_dir.mkdir(parents=True, exist_ok=True)
-
-    tag = "succ" if success else "fail"
-    file_path = task_dir / f"{tag}_{episode_idx}.npz"
-
-    np.savez_compressed(
-        file_path,
-        joint_states=joint_states,
-        gripper_states=gripper_states,
-        agentview_image=agent_imgs,
-        wrist_image=wrist_imgs,
-        actions=actions_np,
-        success=success,
-    )
-    print(f"[💾] Saved rollout to: {file_path}")
-
-    if success:
-        success_count += 1
-    else:
-        failure_count += 1
-    return success_count, failure_count
-
-
 @draccus.wrap()
 def eval_libero(cfg: GenerateConfig) -> float:
     """Main function to evaluate a trained policy on LIBERO benchmark tasks."""
@@ -758,12 +752,12 @@ def eval_libero(cfg: GenerateConfig) -> float:
 
     log_message(f"Task suite: {cfg.task_suite_name}", log_file)
 
-    # yy: save all local inits
-    for task_id in range(num_tasks):
-        task_name = task_suite.get_task(task_id).name
-        if cfg.is_oss:
-            task_name = task_name.split("_with_")[0]
-        obtain_local_pose(task_name)
+    # # yy: save all local inits
+    # for task_id in range(num_tasks):
+    #     task_name = task_suite.get_task(task_id).name
+    #     if cfg.is_oss:
+    #         task_name = task_name.split("_with_")[0]
+    #     obtain_local_pose(task_name)
 
 
     results_folder = get_eval_results_folder(cfg)
