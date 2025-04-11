@@ -13,8 +13,8 @@ sbatch \
   -J $JOB_NAME \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune.py \
     --resume True \
-    --resume_step 20000 \
-    --vla_path '/mnt/arc/yygx/pkgs_baselines/openvla-oft/runs/view_2/1.0.0/openvla-7b+libero_local1+b4+lr-0.0005+lora-r32+dropout-0.0--image_aug--parallel_dec--8_acts_chunk--continuous_acts--L1_regression--3rd_person_img--wrist_img--proprio_state--20000_chkpt' \
+    --resume_step 120000 \
+    --vla_path '/mnt/arc/yygx/pkgs_baselines/openvla-oft/runs/view_2/1.0.0/openvla-7b+libero_local1+b4+lr-0.0005+lora-r32+dropout-0.0--image_aug--parallel_dec--8_acts_chunk--continuous_acts--L1_regression--3rd_person_img--wrist_img--proprio_state--120000_chkpt' \
     --data_root_dir datasets \
     --dataset_name libero_local1 \
     --run_root_dir runs/view_2/1.0.0 \
