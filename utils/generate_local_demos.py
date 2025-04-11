@@ -58,7 +58,7 @@ if __name__ == "__main__":
                         help="Path to folder containing .bddl files (glob pattern allowed)")
     parser.add_argument("--raw_demo_dir", type=str, default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/libero_90_no_noops/",
                         help="Directory containing raw .hdf5 demo files")
-    parser.add_argument("--dest_dir", type=str, default="/mnt/arc/yygx/pkgs_baselines/LIBERO/libero/datasets/hdf5_datasets/",
+    parser.add_argument("--dest_dir", type=str, default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/",
                         help="Directory where processed local demos will be saved")
     parser.add_argument("--pre_grasp_steps", type=int, default=3,
                         help="Number of steps before gripper closes to keep")
