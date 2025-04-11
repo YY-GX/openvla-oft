@@ -95,7 +95,7 @@ def main(args):
     num_success = 0
     num_noops = 0
 
-    for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
+    for task_id in tqdm.tqdm(range(77, num_tasks_in_suite)):
         # Get task in suite
         task = task_suite.get_task(task_id)
         env, task_description = get_libero_env(task, "llava", resolution=IMAGE_RESOLUTION)
