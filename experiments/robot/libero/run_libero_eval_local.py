@@ -177,7 +177,7 @@ def set_local_inits(cfg, env, task_name):
     with open(init_path, 'rb') as f:
         all_states = pickle.load(f)  # shape: [num_demos, 9+*]
     idx = np.random.randint(len(all_states))
-    sim_state = all_states[idx]
+    sim_state = all_states[idx][9:]  # states - containing all the information, including objects placements/robot proprio
 
     # sampled_robot_local_state = all_states[idx]  # shape: [9,]
     #
