@@ -553,9 +553,9 @@ def run_episode(
         #             obs = set_robot_local_pose(cfg, env, task_name)
         #         continue
 
+        obs = set_local_inits(cfg, env, task_name)
         while t < max_steps:
             all_obs.append(obs)
-            obs = set_local_inits(cfg, env, task_name)
 
             # Prepare observation
             observation, img = prepare_observation(obs, resize_size, cfg)
