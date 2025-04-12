@@ -133,7 +133,7 @@ class GenerateConfig:
     #################################################################################################################
     # Locality
     #################################################################################################################
-    local_demo_and_inits_path: str = "/mnt/arc/yygx/pkgs_baselines/LIBERO/libero/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3/"
+    local_demo_and_inits_path: str = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3/"
                                                      # Path to save local demos and initial states
     wrist_only: bool = False                         # TODO: change to True while using it
     is_oss: bool = False                             # Whether to OSS happens TODO: change to True while using it
