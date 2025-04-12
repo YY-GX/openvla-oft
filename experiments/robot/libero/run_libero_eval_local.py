@@ -62,6 +62,7 @@ class TaskSuite(str, Enum):
     LIBERO_10 = "libero_10"
     LIBERO_90 = "libero_90"
     LIBERO_LOCAL1 = "libero_local1"
+    LIBERO_LOCAL2 = "libero_local2"
 
 
 # Define max steps for each task suite
@@ -72,6 +73,7 @@ TASK_MAX_STEPS = {
     TaskSuite.LIBERO_10: 520,  # longest training demo has 505 steps
     TaskSuite.LIBERO_90: 400,  # longest training demo has 373 steps
     TaskSuite.LIBERO_LOCAL1: 400,  # longest training demo has 373 steps
+    TaskSuite.LIBERO_LOCAL2: 400,  # longest training demo has 373 steps
 }
 
 
@@ -551,7 +553,7 @@ def run_episode(
         #             obs = set_robot_local_pose(cfg, env, task_name)
         #         continue
 
-        while t < max_steps + cfg.num_steps_wait:
+        while t < max_steps:
             all_obs.append(obs)
             obs = set_local_inits(cfg, env, task_name)
 
