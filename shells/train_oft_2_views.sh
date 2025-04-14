@@ -14,8 +14,8 @@ sbatch \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune.py \
     --vla_path openvla/openvla-7b \
     --data_root_dir datasets \
-    --dataset_name libero_local1 \
-    --run_root_dir runs/view_2/1.0.0 \
+    --dataset_name libero_local2 \
+    --run_root_dir runs/view_2/1.0.1 \
     --use_l1_regression True \
     --use_diffusion False \
     --use_film False \
