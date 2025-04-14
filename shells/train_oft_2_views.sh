@@ -4,7 +4,7 @@ CPUS_PER_TASK=32
 GPUS=8
 JOB_NAME="finetune_openvla_2img"
 LOG_DIR="$ENDPOINT/pkgs_baselines/openvla-oft/logs"
-LOG_FILE="train_libero_local1_2img_%j.out"
+LOG_FILE="train_libero_local2_2img_%j.out"
 
 sbatch \
   --cpus-per-task=$CPUS_PER_TASK \
