@@ -176,7 +176,9 @@ def set_local_inits(cfg, env, task_name):
     """
     if cfg.is_oss:
         task_name = task_name.split("_with_")[0]
-    init_path = os.path.join(cfg.local_demo_and_inits_path, f"{task_name}_local_init.init")
+        init_path = os.path.join(cfg.local_demo_and_inits_path, "oss_local_init", f"{task_name}_local_init.init")
+    else:
+        init_path = os.path.join(cfg.local_demo_and_inits_path, f"{task_name}_local_init.init")
     with open(init_path, 'rb') as f:
         all_states = pickle.load(f)  # shape: [num_demos, 9+*]
     idx = np.random.randint(len(all_states))
@@ -775,10 +777,17 @@ def eval_libero(cfg: GenerateConfig) -> float:
     #         task_name = task_name.split("_with_")[0]
     #     obtain_local_pose(task_name)
 
+    # yy: pre-check whether the tasks are all in boss-ch1
+    if cfg.is_oss:
+        for task_id in range(num_tasks):
+            task_name = task_suite.get_task(task_id).name.split("_with_")[0]
+            init_path = os.path.join(cfg.local_demo_and_inits_path, "oss_local_init", f"{task_name}_local_init.init")
+            if not os.path.exists(init_path):
+                print(f"[ERROR] {task_suite.get_task(task_id).name} does not have corresponding oss local init.")
+                exit(1)
 
     results_folder = get_eval_results_folder(cfg)
     task_success_rates = {}
-
 
     # Start evaluation
     total_episodes, total_successes = 0, 0
