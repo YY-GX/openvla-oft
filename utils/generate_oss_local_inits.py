@@ -42,6 +42,7 @@ def main(args):
         task_name = task.name
         env, task_description = get_libero_env(task, "llava", resolution=IMAGE_RESOLUTION)
 
+        task_name = task_name.split("__with__")[0]
         orig_data_path = os.path.join(args.libero_raw_data_dir, f"{task_name}_demo.hdf5")
         if not os.path.exists(orig_data_path):
             print(f"Missing: {orig_data_path}")
@@ -98,6 +99,7 @@ def main(args):
             print(f"Saved {len(local_init_states)} init states to {init_save_path}")
 
         success_count_dict[task_name] = task_successes
+        print(success_count_dict)
         orig_data_file.close()
 
     # Save success counts
