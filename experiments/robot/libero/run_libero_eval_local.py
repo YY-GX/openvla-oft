@@ -21,6 +21,7 @@ from libero.libero import benchmark
 import h5py
 import pickle
 import traceback
+import re
 
 import wandb
 
@@ -241,11 +242,24 @@ def set_local_inits(cfg, env, task_name):
 def get_eval_results_folder(cfg):
     base = Path("./runs/eval_results")
     version = 1
-    while (base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}").exists():
+
+    match = re.search(r"/(\d+\.\d+\.\d+)/.*?--(\d+)_chkpt/?$", cfg.pretrained_checkpoint)
+    if match:
+        ckpt_version = match.group(1)
+        ckpt_steps = match.group(2)
+    else:
+        raise ValueError(f"Failed to parse checkpoint path: {cfg.pretrained_checkpoint}")
+
+    while True:
+        folder = base / cfg.task_suite_name / f"ckpt_{ckpt_version}_{ckpt_steps}" \
+                 f"_wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}"
+        if not folder.exists():
+            break
         version += 1
-    folder = base / f"wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}"
+
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
 
 
 # yy: save succ info
