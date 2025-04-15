@@ -181,6 +181,8 @@ def set_local_inits(cfg, env, task_name):
         init_path = os.path.join(cfg.local_demo_and_inits_path, f"{task_name}_local_init.init")
     with open(init_path, 'rb') as f:
         all_states = pickle.load(f)  # shape: [num_demos, 9+*]
+    if len(all_states) == 0:
+        return None
     idx = np.random.randint(len(all_states))
     sim_state = all_states[idx][9:]  # states - containing all the information, including objects placements/robot proprio
 
@@ -570,6 +572,9 @@ def run_episode(
         #         continue
 
         obs = set_local_inits(cfg, env, task_name)
+        if obs is None:
+            print("[WARNING] This task doesn't contain local init!!")
+            return None, None, None, None  # this means this task doesn't contain local init
         while t < max_steps:
             all_obs.append(obs)
 
@@ -688,6 +693,11 @@ def run_task(
             log_file,
         )
 
+        # yy: jump the task if it doesn't contain local init
+        if success is None and replay_images is None:
+            task_episodes = None
+            break
+
 
         # Save rollout for rerun (via encapsulated maybe_save_rollout_obs(...) )
         saved_successes, saved_failures = maybe_save_rollout_obs(
@@ -719,7 +729,10 @@ def run_task(
         log_message(f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)", log_file)
 
     # Log task results
-    task_success_rate = float(task_successes) / float(task_episodes) if task_episodes > 0 else 0
+    if task_episodes is None:
+        task_success_rate = -1
+    else:
+        task_success_rate = float(task_successes) / float(task_episodes) if task_episodes > 0 else 0
     total_success_rate = float(total_successes) / float(total_episodes) if total_episodes > 0 else 0
 
     log_message(f"Current task success rate: {task_success_rate}", log_file)
@@ -734,7 +747,7 @@ def run_task(
             }
         )
 
-    return total_episodes, total_successes
+    return total_episodes, total_successes, task_success_rate
 
 
 @draccus.wrap()
@@ -792,7 +805,7 @@ def eval_libero(cfg: GenerateConfig) -> float:
     # Start evaluation
     total_episodes, total_successes = 0, 0
     for task_id in tqdm.tqdm(range(num_tasks)):
-        total_episodes, total_successes = run_task(
+        total_episodes, total_successes, task_success_rate = run_task(
             cfg,
             task_suite,
             task_id,
@@ -808,9 +821,6 @@ def eval_libero(cfg: GenerateConfig) -> float:
             log_file,
         )
 
-        task_success_rate = (
-            float(total_successes) / float(total_episodes) if total_episodes > 0 else 0
-        )
         task_name = task_suite.get_task(task_id).name
         task_success_rates[task_name] = task_success_rate
 
