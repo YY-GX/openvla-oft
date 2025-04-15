@@ -60,7 +60,13 @@ def main(args):
             orig_states = demo_data["states"][()]
 
             env.reset()
-            env.set_init_state(orig_states[0])
+
+            # yy: TODO here - double check whether this is correct
+            try:
+                env.set_init_state(orig_states[0])
+            except ValueError as e:
+                print("Init file does not match new BDDL task (e.g., objects added/removed). Falling back to random reset.")
+
             for _ in range(10):
                 obs, reward, done, info = env.step(get_libero_dummy_action("llava"))
 
