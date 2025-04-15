@@ -16,8 +16,8 @@ def is_noop(action, prev_action=None, threshold=1e-4):
         return np.linalg.norm(action[:-1]) < threshold
     return np.linalg.norm(action[:-1]) < threshold and action[-1] == prev_action[-1]
 
-def extract_local_init(gripper_states, joint_states, states, pre_grasp_steps=3):
-    gripper_commands = np.array([g[0] if isinstance(g, np.ndarray) else g for g in gripper_states])
+def extract_local_init(actions, joint_states, gripper_states, states, pre_grasp_steps=3):
+    gripper_commands = actions[:, -1]
     transition_idx = None
     for i in range(1, len(gripper_commands)):
         if gripper_commands[i - 1] < 0 and gripper_commands[i] > 0:
@@ -87,9 +87,13 @@ def main(args):
 
             if done:
                 task_successes += 1
-                local_init = extract_local_init(gripper_states, joint_states, states, args.pre_grasp_steps)
-                if local_init is not None:
-                    local_init_states.append(local_init)
+                try:
+                    action_array = np.array(actions)
+                    local_init = extract_local_init(action_array, joint_states, gripper_states, states, args.pre_grasp_steps)
+                    if local_init is not None:
+                        local_init_states.append(local_init)
+                except Exception as e:
+                    print(f"Error processing demo {i} of {task_name}: {e}")
 
         # Save the .init file if there's any success
         if len(local_init_states) > 0:
