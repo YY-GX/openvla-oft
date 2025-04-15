@@ -792,19 +792,23 @@ def eval_libero(cfg: GenerateConfig) -> float:
 
     # yy: pre-check whether the tasks are all in boss-ch1
     if cfg.is_oss:
+        task_id_ls = []
         for task_id in range(num_tasks):
             task_name = task_suite.get_task(task_id).name.split("_with_")[0]
             init_path = os.path.join(cfg.local_demo_and_inits_path, "oss_local_init", f"{task_name}_local_init.init")
             if not os.path.exists(init_path):
                 print(f"[ERROR] {task_suite.get_task(task_id).name} does not have corresponding oss local init.")
-                exit(1)
+            else:
+                task_id_ls.append(task_id)
+    else:
+        task_id_ls = list(range(num_tasks))
 
     results_folder = get_eval_results_folder(cfg)
     task_success_rates = {}
 
     # Start evaluation
     total_episodes, total_successes = 0, 0
-    for task_id in tqdm.tqdm(range(num_tasks)):
+    for task_id in tqdm.tqdm(task_id_ls):
         total_episodes, total_successes, task_success_rate = run_task(
             cfg,
             task_suite,
