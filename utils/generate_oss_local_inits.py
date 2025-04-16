@@ -41,8 +41,7 @@ def main(args):
     if args.is_debug:
         task_id_ls = [17, 19, 22, 25]
     else:
-        task_id_ls = list(range(num_tasks_in_suite))
-        task_id_ls = [1]
+        task_id_ls = sorted(list(range(num_tasks_in_suite)))
 
     for task_id in tqdm(task_id_ls, desc="Tasks"):
         task = task_suite.get_task(task_id)
@@ -118,10 +117,10 @@ def main(args):
                 if done:
                     break
 
-            print(f"=============================================")
-            print(f">> task_id: {task_id}, task_name: {task_name}, demo_i: {demo_i}")
-            print(f">> Try times: {try_num}")
-            print(f">> done: {done}")
+            # print(f"=============================================")
+            # print(f">> task_id: {task_id}, task_name: {task_name}, demo_i: {demo_i}")
+            # print(f">> Try times: {try_num}")
+            # print(f">> done: {done}")
 
             if done:
                 task_successes += 1
@@ -133,7 +132,10 @@ def main(args):
                 except Exception as e:
                     print(f"Error processing {demo_i} of {task_name}: {e}")
 
-            print(f">> len(local_init_states): {len(local_init_states)}")
+            # print(f">> len(local_init_states): {len(local_init_states)}")
+            if done and (task_successes >= 3) and (len(local_init_states) == 0):
+                break
+
 
         if args.is_debug:
             debug_video_path = os.path.join(args.dest_dir, "oss_local_init", f"debug_{task_id}_{task_name}.mp4")
