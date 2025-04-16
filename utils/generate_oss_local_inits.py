@@ -61,6 +61,7 @@ def main(args):
         task_successes = 0
 
         if args.is_debug:
+            print(orig_data.keys())
             orig_data_keys = orig_data.keys()[0]
             imgs = []
         else:
