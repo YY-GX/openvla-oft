@@ -62,7 +62,7 @@ def main(args):
 
         if args.is_debug:
             print(orig_data.keys())
-            orig_data_keys = list(orig_data.keys())[0]
+            orig_data_keys = [list(orig_data.keys())[0]]
             imgs = []
         else:
             orig_data_keys = list(orig_data.keys())
