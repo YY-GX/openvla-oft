@@ -103,10 +103,10 @@ def main(args):
                     if is_noop(action, prev_action):
                         continue
 
-                    if states == []:
-                        states.append(orig_states[0])
-                    else:
-                        states.append(env.sim.get_state().flatten())
+                    # if states == []:
+                    #     states.append(orig_states[0])
+                    # else:
+                    states.append(env.sim.get_state().flatten())
 
                     actions.append(action)
                     gripper_states.append(obs["robot0_gripper_qpos"])
