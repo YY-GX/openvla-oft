@@ -42,6 +42,7 @@ def main(args):
         task_id_ls = [17, 19, 22, 25]
     else:
         task_id_ls = list(range(num_tasks_in_suite))
+        task_id_ls = [1]
 
     for task_id in tqdm(task_id_ls, desc="Tasks"):
         task = task_suite.get_task(task_id)
@@ -118,7 +119,7 @@ def main(args):
                     break
 
             print(f"=============================================")
-            print(f">> task_id: {task_id}, demo_i: {demo_i}")
+            print(f">> task_id: {task_id}, task_name: {task_name}, demo_i: {demo_i}")
             print(f">> Try times: {try_num}")
             print(f">> done: {done}")
 
