@@ -62,13 +62,13 @@ def main(args):
 
         if args.is_debug:
             print(orig_data.keys())
-            orig_data_keys = orig_data.keys()[0]
+            orig_data_keys = list(orig_data.keys())[0]
             imgs = []
         else:
-            orig_data_keys = orig_data.keys()
+            orig_data_keys = list(orig_data.keys())
 
-        for i in range(orig_data_keys):
-            demo_data = orig_data[f"demo_{i}"]
+        for demo_i in orig_data_keys:
+            demo_data = orig_data[demo_i]
             orig_actions = demo_data["actions"][()]
             orig_states = demo_data["states"][()]
 
@@ -114,7 +114,7 @@ def main(args):
                     if local_init is not None:
                         local_init_states.append(local_init)
                 except Exception as e:
-                    print(f"Error processing demo {i} of {task_name}: {e}")
+                    print(f"Error processing {demo_i} of {task_name}: {e}")
 
         if args.is_debug:
             debug_video_path = os.path.join(args.dest_dir, "oss_local_init", f"debug_{task_id}_{task_name}.mp4")
