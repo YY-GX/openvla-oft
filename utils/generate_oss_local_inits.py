@@ -48,6 +48,8 @@ def main(args):
         task_name = task.name
         env, task_description = get_libero_env(task, "llava", resolution=IMAGE_RESOLUTION)
 
+        print(f"task_name: {task_name}")
+
         task_name = task_name.split("_with_")[0]
         orig_data_path = os.path.join(args.libero_raw_data_dir, f"{task_name}_demo.hdf5")
         if not os.path.exists(orig_data_path):
