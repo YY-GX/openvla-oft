@@ -120,7 +120,7 @@ def main(args):
             print(f"=============================================")
             print(f">> task_id: {task_id}, demo_i: {demo_i}")
             print(f">> Try times: {try_num}")
-            print(f">> task_successes: {task_successes}")
+            print(f">> done: {done}")
 
             if done:
                 task_successes += 1
