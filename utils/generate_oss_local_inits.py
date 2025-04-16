@@ -132,6 +132,8 @@ def main(args):
                 except Exception as e:
                     print(f"Error processing {demo_i} of {task_name}: {e}")
 
+            print(f">> len(local_init_states): {len(local_init_states)}")
+
         if args.is_debug:
             debug_video_path = os.path.join(args.dest_dir, "oss_local_init", f"debug_{task_id}_{task_name}.mp4")
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
