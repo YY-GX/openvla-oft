@@ -8,6 +8,7 @@ import robosuite.utils.transform_utils as T
 from tqdm import tqdm
 from libero.libero import benchmark
 from experiments.robot.libero.libero_utils import get_libero_dummy_action, get_libero_env
+import cv2
 
 IMAGE_RESOLUTION = 256
 
@@ -37,7 +38,12 @@ def main(args):
     task_suite = benchmark_dict[args.libero_task_suite]()
     num_tasks_in_suite = task_suite.n_tasks
 
-    for task_id in tqdm(range(num_tasks_in_suite), desc="Tasks"):
+    if args.is_debug:
+        task_id_ls = [17, 19, 22, 25]
+    else:
+        task_id_ls = list(range(num_tasks_in_suite))
+
+    for task_id in tqdm(task_id_ls, desc="Tasks"):
         task = task_suite.get_task(task_id)
         task_name = task.name
         env, task_description = get_libero_env(task, "llava", resolution=IMAGE_RESOLUTION)
@@ -54,7 +60,13 @@ def main(args):
         local_init_states = []
         task_successes = 0
 
-        for i in range(len(orig_data.keys())):
+        if args.is_debug:
+            orig_data_keys = orig_data.keys()[0]
+            imgs = []
+        else:
+            orig_data_keys = orig_data.keys()
+
+        for i in range(orig_data_keys):
             demo_data = orig_data[f"demo_{i}"]
             orig_actions = demo_data["actions"][()]
             orig_states = demo_data["states"][()]
@@ -76,6 +88,8 @@ def main(args):
             joint_states = []
 
             for _, action in enumerate(orig_actions):
+                if args.is_debug:
+                    imgs.append(obs['agentview_image'])
                 prev_action = actions[-1] if len(actions) > 0 else None
                 if is_noop(action, prev_action):
                     continue
@@ -101,22 +115,35 @@ def main(args):
                 except Exception as e:
                     print(f"Error processing demo {i} of {task_name}: {e}")
 
+        if args.is_debug:
+            debug_video_path = os.path.join(args.dest_dir, "oss_local_init", f"debug_{task_id}_{task_name}.mp4")
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            fps = 20  # Change if needed
+            h, w = imgs[0].shape[:2]
+            writer = cv2.VideoWriter(debug_video_path, fourcc, fps, (w, h))
+            for img in imgs:
+                writer.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))  # Convert RGB to BGR for OpenCV
+            writer.release()
+
         # Save the .init file if there's any success
         if len(local_init_states) > 0:
             init_save_path = os.path.join(args.dest_dir, "oss_local_init", f"{task_name}_local_init.init")
             with open(init_save_path, 'wb') as f:
                 pickle.dump(np.array(local_init_states), f)
             print(f"Saved {len(local_init_states)} init states to {init_save_path}")
+        else:
+            print("[WARNING] NO local init states saved!!!")
 
         success_count_dict[task_name] = task_successes
         print(success_count_dict)
         orig_data_file.close()
 
     # Save success counts
-    success_path = os.path.join(args.dest_dir, "oss_local_init", "success_counts.pkl")
-    with open(success_path, 'wb') as f:
-        pickle.dump(success_count_dict, f)
-    print(f"\nSaved success counts to: {success_path}")
+    if not args.is_debug:
+        success_path = os.path.join(args.dest_dir, "oss_local_init", "success_counts.pkl")
+        with open(success_path, 'wb') as f:
+            pickle.dump(success_count_dict, f)
+        print(f"\nSaved success counts to: {success_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -129,6 +156,7 @@ if __name__ == "__main__":
                         help="Destination dir to save .init files and success count",
                         default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3")
     parser.add_argument("--pre_grasp_steps", type=int, default=3)
+    parser.add_argument("--is_debug", type=int, default=0)
     args = parser.parse_args()
 
     main(args)
