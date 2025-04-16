@@ -72,7 +72,7 @@ def main(args):
             orig_states = demo_data["states"][()]
 
             # Let demo replayed for many times with random initialization, until succeed
-            TRY_NUM = 20
+            TRY_NUM = 10
             for try_num in range(TRY_NUM):
 
                 env.reset()
