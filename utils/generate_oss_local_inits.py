@@ -61,7 +61,6 @@ def main(args):
         task_successes = 0
 
         if args.is_debug:
-            print(orig_data.keys())
             orig_data_keys = [list(orig_data.keys())[0]]
             imgs = []
         else:
@@ -72,39 +71,54 @@ def main(args):
             orig_actions = demo_data["actions"][()]
             orig_states = demo_data["states"][()]
 
-            env.reset()
+            # Let demo replayed for many times with random initialization, until succeed
+            TRY_NUM = 20
+            for try_num in range(TRY_NUM):
 
-            # yy: TODO here - double check whether this is correct
-            try:
-                env.set_init_state(orig_states[0])
-            except ValueError as e:
-                print("Init file does not match new BDDL task (e.g., objects added/removed). Falling back to random reset.")
+                env.reset()
 
-            for _ in range(10):
-                obs, reward, done, info = env.step(get_libero_dummy_action("llava"))
+                # # yy: TODO here - double check whether this is correct
+                # try:
+                #     # FIX: TODO: orig_states is not correct, it's non-oss state, but state from non-oss demo.
+                #     # TODO: I shall check how Libero set state from bddl file.
+                #     #  1. Need to compare ***.bddl and ***_with_***.bddl's state dim difference.
+                #     #  2. set ***_with_***.bddl's initial state first, then set additional part.
+                #
+                #     env.set_init_state(orig_states[0])
+                # except ValueError as e:
+                #     print("Init file does not match new BDDL task (e.g., objects added/removed). Falling back to random reset.")
 
-            states = []
-            actions = []
-            gripper_states = []
-            joint_states = []
+                for _ in range(10):
+                    obs, reward, done, info = env.step(get_libero_dummy_action("llava"))
 
-            for _, action in enumerate(orig_actions):
-                if args.is_debug:
-                    imgs.append(obs['agentview_image'])
-                prev_action = actions[-1] if len(actions) > 0 else None
-                if is_noop(action, prev_action):
-                    continue
+                states = []
+                actions = []
+                gripper_states = []
+                joint_states = []
 
-                if states == []:
-                    states.append(orig_states[0])
-                else:
-                    states.append(env.sim.get_state().flatten())
+                for _, action in enumerate(orig_actions):
+                    if args.is_debug:
+                        imgs.append(obs['agentview_image'])
+                    prev_action = actions[-1] if len(actions) > 0 else None
+                    if is_noop(action, prev_action):
+                        continue
 
-                actions.append(action)
-                gripper_states.append(obs["robot0_gripper_qpos"])
-                joint_states.append(obs["robot0_joint_pos"])
+                    if states == []:
+                        states.append(orig_states[0])
+                    else:
+                        states.append(env.sim.get_state().flatten())
 
-                obs, reward, done, info = env.step(action.tolist())
+                    actions.append(action)
+                    gripper_states.append(obs["robot0_gripper_qpos"])
+                    joint_states.append(obs["robot0_joint_pos"])
+
+                    obs, reward, done, info = env.step(action.tolist())
+
+                if done:
+                    break
+
+            if args.is_debug:
+                print(f">> Try times: {try_num}")
 
             if done:
                 task_successes += 1
