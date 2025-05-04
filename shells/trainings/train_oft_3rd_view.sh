@@ -7,7 +7,7 @@ LOG_DIR="$ENDPOINT/pkgs_baselines/openvla-oft/logs"
 LOG_FILE="train_libero_local2_3rd_view_%j.out"
 
 sbatch \
-  --nodelist=megatron \
+  --nodelist=megatron.ib \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
   -o "$LOG_DIR/$LOG_FILE" \
