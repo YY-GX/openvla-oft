@@ -139,6 +139,7 @@ class GenerateConfig:
     local_demo_and_inits_path: str = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3/"
                                                      # Path to save local demos and initial states
     wrist_only: bool = False                         # TODO: change to True while using it
+    agent_only: bool = False                         # TODO: change to True while using it
     is_oss: bool = False                             # Whether to OSS happens TODO: change to True while using it
 
 
@@ -256,7 +257,7 @@ def get_eval_results_folder(cfg):
 
     while True:
         folder = base / cfg.task_suite_name / f"ckpt_{ckpt_version}_{ckpt_steps}" \
-                 f"_wrist_only_{cfg.wrist_only}_is_oss_{cfg.is_oss}_v{version}"
+                 f"_wrist_only_{cfg.wrist_only}_agent_only_{cfg.agent_only}_is_oss_{cfg.is_oss}_v{version}"
         if not folder.exists():
             break
         version += 1
@@ -477,6 +478,20 @@ def prepare_observation(obs, resize_size, cfg):
         }
 
         img = wrist_img
+    elif cfg.agent_only:
+        # Get preprocessed images
+        img = get_libero_image(obs)
+
+        # Resize images to size expected by model
+        img_resized = resize_image_for_policy(img, resize_size)
+
+        # Prepare observations dict
+        observation = {
+            "full_image": img_resized,
+            "state": np.concatenate(
+                (obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])
+            ),
+        }
     else:
         # Get preprocessed images
         img = get_libero_image(obs)
@@ -755,7 +770,7 @@ def eval_libero(cfg: GenerateConfig) -> float:
     """Main function to evaluate a trained policy on LIBERO benchmark tasks."""
 
     # yy: modify config based on existing param
-    if cfg.wrist_only:
+    if cfg.wrist_only or cfg.agent_only:
         cfg.num_images_in_input = 1
 
     # Validate configuration
