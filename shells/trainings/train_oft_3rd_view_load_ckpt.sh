@@ -7,18 +7,19 @@ LOG_DIR="$ENDPOINT/pkgs_baselines/openvla-oft/logs"
 LOG_FILE="train_libero_local2_3rd_view_%j.out"
 
 sbatch \
-  --nodelist=mirage.ib \
+  --nodelist=megatron.ib \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
   -o "$LOG_DIR/$LOG_FILE" \
   -J $JOB_NAME \
   --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune.py \
     --num_images_in_input 1 \
-    --grad_accumulation_steps 2 \
-    --vla_path openvla/openvla-7b \
+    --resume True \
+    --resume_step 50000 \
+    --vla_path '/mnt/arc/yygx/pkgs_baselines/openvla-oft/runs/3rd_view/1.0.0/openvla-7b+libero_local2+b4+lr-0.0005+lora-r32+dropout-0.0--image_aug--parallel_dec--8_acts_chunk--continuous_acts--L1_regression--3rd_person_img--proprio_state--50000_chkpt' \
     --data_root_dir datasets \
     --dataset_name libero_local2 \
-    --run_root_dir runs/3rd_view/1.0.1 \
+    --run_root_dir runs/3rd_view/1.0.0 \
     --use_l1_regression True \
     --use_diffusion False \
     --use_film False \
@@ -26,7 +27,7 @@ sbatch \
     --batch_size 4 \
     --learning_rate 5e-4 \
     --num_steps_before_decay 100000 \
-    --max_steps 50005 \
+    --max_steps 150005 \
     --save_freq 10000 \
     --save_latest_checkpoint_only False \
     --image_aug True \
