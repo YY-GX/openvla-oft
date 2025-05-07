@@ -27,6 +27,7 @@ def visualize_rlds(
     ds = tfds.load(dataset_name, data_dir=data_dir)
     train_set = list(ds["train"])
 
+    print(f"Loaded {len(train_set)} episodes from {dataset_name}")
     if episode_index >= len(train_set):
         raise IndexError(f"Episode index {episode_index} is out of range. Dataset only has {len(train_set)} episodes.")
 
