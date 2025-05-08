@@ -17,7 +17,8 @@ def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir:
     saved_num = min(saved_num, len(all_states))
 
     # Get task and environment
-    task_suite = benchmark.get_benchmark_dict()["libero_local1"]()
+    task_suite = benchmark.get_benchmark_dict()["libero_local2"]()
+    print(task_suite.tasks)
     task = [t for t in task_suite.tasks if t.name == task_name.replace("_local", "")][0]
     env, _ = get_libero_env(task, model_family="openvla", resolution=256)
 
@@ -38,7 +39,7 @@ def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir:
 
 
 if __name__ == "__main__":
-    task_name = "LIVING_ROOM_SCENE4_pick_up_the_salad_dressing_and_put_it_in_the_tray"
+    task_name = "KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate"
     saved_num = 10
     init_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3"
     save_dir = f"./debug_inits_imgs/{task_name}/"
