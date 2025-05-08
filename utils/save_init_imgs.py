@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 from libero.libero import benchmark
 from experiments.robot.libero.libero_utils import get_libero_env, get_libero_image, get_libero_wrist_image
+from PIL import Image
 
 def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir: str):
     os.makedirs(save_dir, exist_ok=True)
@@ -32,8 +33,9 @@ def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir:
         # Save images
         agent_path = os.path.join(save_dir, f"{task_name}_agent_{i}.png")
         wrist_path = os.path.join(save_dir, f"{task_name}_wrist_{i}.png")
-        agent_img.save(agent_path)
-        wrist_img.save(wrist_path)
+
+        Image.fromarray(agent_img).save(agent_path)
+        Image.fromarray(wrist_img).save(wrist_path)
 
         print(f"[✔] Saved: {agent_path} and {wrist_path}")
 
