@@ -13,6 +13,7 @@ def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir:
     with open(init_path, 'rb') as f:
         all_states = pickle.load(f)
 
+    print(f"[INFO] Found {len(all_states)} initial states in {init_path}")
     saved_num = min(saved_num, len(all_states))
 
     # Get task and environment
@@ -37,7 +38,7 @@ def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir:
 
 
 if __name__ == "__main__":
-    task_name = "LIVING_ROOM_SCENE4_pick_up_the_salad_dressing_and_put_it_in_the_tray_local"
+    task_name = "LIVING_ROOM_SCENE4_pick_up_the_salad_dressing_and_put_it_in_the_tray"
     saved_num = 10
     init_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3"
     save_dir = f"./debug_inits_imgs/{task_name}/"
