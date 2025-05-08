@@ -41,7 +41,7 @@ def save_initial_images(task_name: str, saved_num: int, init_dir: str, save_dir:
 
 
 if __name__ == "__main__":
-    task_name = "KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate"
+    task_name = "KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet"
     saved_num = 10
     init_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3"
     save_dir = f"./debug_inits_imgs/{task_name}/"
