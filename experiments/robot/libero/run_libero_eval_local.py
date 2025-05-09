@@ -258,7 +258,7 @@ def get_eval_results_folder(cfg):
 
     while True:
         folder = base / cfg.task_suite_name / f"ckpt_{ckpt_version}_{ckpt_steps}" \
-                 f"_wrist_only_{cfg.wrist_only}_agent_only_{cfg.agent_only}_is_oss_{cfg.is_oss}_v{version}"
+                 f"_wrist_only_{cfg.wrist_only}_agent_only_{cfg.agent_only}_pro_only_{cfg.pro_only}_is_oss_{cfg.is_oss}_v{version}"
         if not folder.exists():
             break
         version += 1
@@ -325,11 +325,11 @@ def maybe_save_rollout_obs(
     return success_count, failure_count
 
 
-    def generate_gaussian_noise_image(resize_size):
-        """Generate a grayscale Gaussian noise image with values in [0, 255]."""
-        noise = np.random.normal(loc=127.5, scale=50.0, size=(resize_size, resize_size, 3))
-        noise = np.clip(noise, 0, 255).astype(np.uint8)
-        return noise
+def generate_gaussian_noise_image(resize_size):
+    """Generate a grayscale Gaussian noise image with values in [0, 255]."""
+    noise = np.random.normal(loc=127.5, scale=50.0, size=(resize_size, resize_size, 3))
+    noise = np.clip(noise, 0, 255).astype(np.uint8)
+    return noise
 
 ################################################## yy added methods ##################################################
 ######################################################################################################################
