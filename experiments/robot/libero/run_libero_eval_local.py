@@ -140,6 +140,7 @@ class GenerateConfig:
                                                      # Path to save local demos and initial states
     wrist_only: bool = False                         # TODO: change to True while using it
     agent_only: bool = False                         # TODO: change to True while using it
+    pro_only: bool = False                           # TODO: change to True while using it
     is_oss: bool = False                             # Whether to OSS happens TODO: change to True while using it
 
 
@@ -323,6 +324,12 @@ def maybe_save_rollout_obs(
         failure_count += 1
     return success_count, failure_count
 
+
+    def generate_gaussian_noise_image(resize_size):
+        """Generate a grayscale Gaussian noise image with values in [0, 255]."""
+        noise = np.random.normal(loc=127.5, scale=50.0, size=(resize_size, resize_size, 3))
+        noise = np.clip(noise, 0, 255).astype(np.uint8)
+        return noise
 
 ################################################## yy added methods ##################################################
 ######################################################################################################################
@@ -509,6 +516,14 @@ def prepare_observation(obs, resize_size, cfg):
                 (obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])
             ),
         }
+
+    if cfg.pro_only:
+        noise_img = generate_gaussian_noise_image(resize_size)
+        observation["full_image"] = noise_img
+        if "wrist_image" in observation:
+            observation["wrist_image"] = noise_img
+        img = noise_img
+
 
     return observation, img  # Return both processed observation and original image for replay
 
