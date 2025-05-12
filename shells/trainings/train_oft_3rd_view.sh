@@ -4,10 +4,10 @@ CPUS_PER_TASK=32
 GPUS=8
 JOB_NAME="finetune_openvla_3rd_view"
 LOG_DIR="$ENDPOINT/pkgs_baselines/openvla-oft/logs"
-LOG_FILE="train_libero_local2_3rd_view_%j.out"
+LOG_FILE="train_libero_local3_3rd_view_%j.out"
 
 sbatch \
-  --nodelist=mirage.ib \
+  --nodelist=arcee.ib \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
   -o "$LOG_DIR/$LOG_FILE" \
@@ -16,9 +16,9 @@ sbatch \
     --num_images_in_input 1 \
     --grad_accumulation_steps 2 \
     --vla_path openvla/openvla-7b \
-    --data_root_dir datasets \
-    --dataset_name libero_local2 \
-    --run_root_dir runs/3rd_view/1.0.1 \
+    --data_root_dir datasets/rlds_datasets/ \
+    --dataset_name libero_local3 \
+    --run_root_dir runs/3rd_view/1.0.2 \
     --use_l1_regression True \
     --use_diffusion False \
     --use_film False \

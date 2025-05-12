@@ -17,7 +17,7 @@ sbatch \
     --vla_path '/mnt/arc/yygx/pkgs_baselines/openvla-oft/runs/view_wrist/1.0.0/openvla-7b+libero_local1+b4+lr-0.0005+lora-r32+dropout-0.0--image_aug--parallel_dec--8_acts_chunk--continuous_acts--L1_regression--wrist_img--proprio_state--20000_chkpt' \
     --is_local_policy True \
     --num_images_in_input 1 \
-    --data_root_dir datasets \
+    --data_root_dir datasets/rlds_datasets/ \
     --dataset_name libero_local1 \
     --run_root_dir runs/view_wrist/1.0.0 \
     --use_l1_regression True \
