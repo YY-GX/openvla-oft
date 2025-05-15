@@ -410,6 +410,8 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
     """Check that the model contains the action un-normalization key."""
     # Initialize unnorm_key
     unnorm_key = cfg.task_suite_name
+    if unnorm_key in ["gl_size", "gl_color"]:
+        unnorm_key = "libero_local3"
 
     # In some cases, the key must be manually modified (e.g. after training on a modified version of the dataset
     # with the suffix "_no_noops" in the dataset name)
