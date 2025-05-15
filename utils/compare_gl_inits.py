@@ -5,12 +5,22 @@ from libero.libero import benchmark
 from experiments.robot.libero.libero_utils import get_libero_env, get_libero_image
 from PIL import Image, ImageDraw
 
+
+import torch
+
 def load_init_states(init_dir, task_name):
     init_path = os.path.join(init_dir, f"{task_name}.init")
     if not os.path.exists(init_path):
         raise FileNotFoundError(f"Init file not found at {init_path}")
-    with open(init_path, 'rb') as f:
-        return pickle.load(f)
+    return torch.load(init_path)
+
+# def load_init_states(init_dir, task_name):
+#     init_path = os.path.join(init_dir, f"{task_name}.init")
+#     if not os.path.exists(init_path):
+#         raise FileNotFoundError(f"Init file not found at {init_path}")
+#     with open(init_path, 'rb') as f:
+#         return pickle.load(f)
+
 
 def visualize_comparison(task_name, num_samples, suite1_dir, suite2_dir, save_dir):
     os.makedirs(save_dir, exist_ok=True)
