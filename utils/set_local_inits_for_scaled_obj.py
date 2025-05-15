@@ -64,8 +64,9 @@ def render_and_save_combined_view(benchmark_name, init_dir, task_name, save_dir,
 
 if __name__ == "__main__":
     gl_benchmark_name = "gl_size"
+    gl_benchmark_name = "libero_local3"
     init_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/local_demos_libero_90_openvla_no_noops_pre_3/"
-    save_base_dir = "./gl_size_combined_inits"
+    save_base_dir = f"./{gl_benchmark_name}_combined_inits"
 
     # Collect task names from gl_size
     gl_benchmark = benchmark.get_benchmark_dict()[gl_benchmark_name]()
@@ -78,5 +79,5 @@ if __name__ == "__main__":
             init_dir,
             task_name,
             os.path.join(save_base_dir, task_name),
-            num_samples=5
+            num_samples=1
         )
