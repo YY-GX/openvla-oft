@@ -119,6 +119,8 @@ def main():
                 first_step = next(iter(ep["steps"]))
                 if "language_instruction" in first_step:
                     lang = first_step["language_instruction"].numpy().decode("utf-8").strip()
+                    print(f"|{lang}|")
+                    print(f"|{args.language_description.strip()}|")
                     if lang == args.language_description.strip():
                         logging.info(f"Found matching episode at index {idx}")
                         args.episode_index = idx
