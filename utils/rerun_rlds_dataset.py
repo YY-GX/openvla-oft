@@ -42,6 +42,7 @@ def visualize_rlds(
         rr.serve(open_browser=False, web_port=web_port, ws_port=ws_port)
 
     steps = episode["steps"]
+    print(steps[0]['observation'].keys())
     for i, step in enumerate(steps):
         rr.set_time_sequence("frame_index", i)
 
