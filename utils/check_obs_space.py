@@ -11,8 +11,7 @@ def log_obs_keys(benchmark_name):
 
         # Create environment
         env, _ = get_libero_env(task, model_family="openvla", resolution=256)
-
-        obs = env.set_init_state(sim_state)
+        obs = env.reset()
         obs_keys = list(obs.keys())
         print(f"[OBS KEYS] {obs_keys}")
         print("==========================")
