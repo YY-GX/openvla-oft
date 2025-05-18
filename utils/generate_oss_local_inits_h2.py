@@ -156,7 +156,8 @@ def main(args):
                 task_successes += 1
                 try:
                     action_array = np.array(actions)
-                    local_init = extract_local_init(action_array, joint_states, gripper_states, states, args.pre_grasp_steps)
+                    local_init = extract_local_init(action_array, joint_states, gripper_states, states, env,
+                                                    args.pre_grasp_steps)
                     if local_init is not None:
                         local_init_states.append(local_init)
                 except Exception as e:
