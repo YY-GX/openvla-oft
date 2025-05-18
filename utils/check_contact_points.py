@@ -71,6 +71,8 @@ if __name__ == "__main__":
                     g2 = env.sim.model.geom_id2name(contact.geom2)
                     print(f"    {g1} <-> {g2}")
 
+            exit(0)
+
     if no_contact_tasks:
         print("\n[SUMMARY] Tasks with no EE contact found:")
         for tname in no_contact_tasks:
