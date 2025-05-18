@@ -21,9 +21,14 @@ if __name__ == "__main__":
     bm_name = "boss_44"
 
     task_suite = benchmark.get_benchmark_dict()[bm_name]()
-    EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1", "gripper0_hand_collision"]
-
-    no_contact_tasks = []
+    EE_GEOM_NAMES = [
+        "robot0_eef",
+        "robot0_gripper0_finger0",
+        "robot0_gripper0_finger1",
+        "gripper0_hand_collision",
+        "gripper0_finger0_collision",
+        "gripper0_finger1_collision",
+    ]
 
     for task in task_suite.tasks:
         task_name = task.name
@@ -36,10 +41,25 @@ if __name__ == "__main__":
         demo_keys = list(data_dict['data'].keys())
         demo = data_dict['data'][demo_keys[0]]
         states = demo['states']
+        actions = demo['actions']
         total_steps = len(states)
 
         env, _ = get_libero_env(task, model_family="openvla", resolution=256)
 
+        print(f"\n[TASK] {task_name} ({total_steps} timesteps)")
+
+        # --- Gripper Closing Detection ---
+        gripper_closed = False
+        for t, action in enumerate(actions):
+            gripper_cmd = action[-1]
+            if gripper_cmd > 0:  # assuming positive means closing
+                print(f"  [GRIPPER CLOSE] at timestep {t+1} / {total_steps}")
+                gripper_closed = True
+                break
+        if not gripper_closed:
+            print(f"  [INFO] No gripper closing found.")
+
+        # --- Contact Detection ---
         contact_found = False
         for t, sim_state in enumerate(states):
             env.set_init_state(sim_state)
@@ -48,32 +68,10 @@ if __name__ == "__main__":
                 g1 = env.sim.model.geom_id2name(contact.geom1)
                 g2 = env.sim.model.geom_id2name(contact.geom2)
                 if g1 in EE_GEOM_NAMES or g2 in EE_GEOM_NAMES:
-                    print(f"[TASK] {task_name}")
-                    print(f"  [CONTACT] {g1} <-> {g2}")
-                    print(f"  [STEP] {t+1} / {total_steps}")
+                    print(f"  [CONTACT] {g1} <-> {g2} at timestep {t+1} / {total_steps}")
                     contact_found = True
                     break
             if contact_found:
                 break
-
         if not contact_found:
-            print(f"[TASK] {task_name}")
-            print(f"  [INFO] No EE contact found in first demo. Listing all contacts for debug:")
-            no_contact_tasks.append(task_name)
-
-            for t, sim_state in enumerate(states):
-                env.set_init_state(sim_state)
-                n_contacts = env.sim.data.ncon
-                print(f"  [t={t+1}] {n_contacts} contacts:")
-                for i in range(n_contacts):
-                    contact = env.sim.data.contact[i]
-                    g1 = env.sim.model.geom_id2name(contact.geom1)
-                    g2 = env.sim.model.geom_id2name(contact.geom2)
-                    print(f"    {g1} <-> {g2}")
-
-            exit(0)
-
-    if no_contact_tasks:
-        print("\n[SUMMARY] Tasks with no EE contact found:")
-        for tname in no_contact_tasks:
-            print(f"  - {tname}")
+            print(f"  [INFO] No EE contact found.")
