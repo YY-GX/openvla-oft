@@ -6,6 +6,15 @@ import pickle
 import argparse
 from tqdm import tqdm
 
+
+"""
+This script use hueristic (detect gripper closing timesteps), h1, to extract local demos from the original demo files.
+
+Issues:
+1. The script does not handle cases where the gripper closing transition is not found.
+2. The pre_grasp_steps parameter is fixed. Need more diverse local demos with different pre-grasp steps.
+"""
+
 # Recursive HDF5 loader
 def load_hdf5_to_dict(file_path):
     def recursively_extract(group):
