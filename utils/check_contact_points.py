@@ -23,6 +23,8 @@ if __name__ == "__main__":
     task_suite = benchmark.get_benchmark_dict()[bm_name]()
     EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1", "gripper0_hand_collision"]
 
+    no_contact_tasks = []
+
     for task in task_suite.tasks:
         task_name = task.name
         demo_file = os.path.join(data_dir, f"{task_name}_demo.hdf5")
@@ -56,4 +58,20 @@ if __name__ == "__main__":
 
         if not contact_found:
             print(f"[TASK] {task_name}")
-            print(f"  [INFO] No EE contact found in first demo.")
+            print(f"  [INFO] No EE contact found in first demo. Listing all contacts for debug:")
+            no_contact_tasks.append(task_name)
+
+            for t, sim_state in enumerate(states):
+                env.set_init_state(sim_state)
+                n_contacts = env.sim.data.ncon
+                print(f"  [t={t+1}] {n_contacts} contacts:")
+                for i in range(n_contacts):
+                    contact = env.sim.data.contact[i]
+                    g1 = env.sim.model.geom_id2name(contact.geom1)
+                    g2 = env.sim.model.geom_id2name(contact.geom2)
+                    print(f"    {g1} <-> {g2}")
+
+    if no_contact_tasks:
+        print("\n[SUMMARY] Tasks with no EE contact found:")
+        for tname in no_contact_tasks:
+            print(f"  - {tname}")
