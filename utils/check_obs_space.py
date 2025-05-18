@@ -42,23 +42,21 @@ def log_obs_keys(benchmark_name):
         print(f"[OBS KEYS] {obs_keys}")
 
 
-        EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1"]
-        # Get number of contacts
-        n_contacts = env.sim.data.ncon
-        print(f"Number of contacts: {n_contacts}")
-
-        for i in range(n_contacts):
-            contact = env.sim.data.contact[i]
-            geom1_name = env.sim.model.geom_id2name(contact.geom1)
-            geom2_name = env.sim.model.geom_id2name(contact.geom2)
-
-            if geom1_name in EE_GEOM_NAMES or geom2_name in EE_GEOM_NAMES:
-                print(f"EE Contact detected between {geom1_name} and {geom2_name}")
-
+        # EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1"]
+        # # Get number of contacts
+        # n_contacts = env.sim.data.ncon
+        #
+        # for i in range(n_contacts):
+        #     contact = env.sim.data.contact[i]
+        #     geom1_name = env.sim.model.geom_id2name(contact.geom1)
+        #     geom2_name = env.sim.model.geom_id2name(contact.geom2)
+        #
+        #     if geom1_name in EE_GEOM_NAMES or geom2_name in EE_GEOM_NAMES:
+        #         print(f"EE Contact detected between {geom1_name} and {geom2_name}")
+        #
 
 
         print("==========================")
-        exit(0)
 
 if __name__ == "__main__":
     bm_name = "boss_44"
