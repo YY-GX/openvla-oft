@@ -20,29 +20,40 @@ if __name__ == "__main__":
     data_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/libero_90_no_noops/"
     bm_name = "boss_44"
 
-    task = benchmark.get_benchmark_dict()[bm_name]().tasks[0]
-    task_name = task.name
-    print(f"[INFO] Task: {task_name}")
+    task_suite = benchmark.get_benchmark_dict()[bm_name]()
+    EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1", "gripper0_hand_collision"]
 
-    env, _ = get_libero_env(task, model_family="openvla", resolution=256)
-    demo_file = os.path.join(data_dir, f"{task_name}_demo.hdf5")
-    data_dict = load_hdf5_to_dict(demo_file)
-
-    demo_keys = list(data_dict['data'].keys())
-    demo = data_dict['data'][demo_keys[0]]
-    states = demo['states']
-
-    EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1"]
-
-    for t, sim_state in enumerate(states):
-        env.set_init_state(sim_state)
-        n_contacts = env.sim.data.ncon
-        if n_contacts == 0:
+    for task in task_suite.tasks:
+        task_name = task.name
+        demo_file = os.path.join(data_dir, f"{task_name}_demo.hdf5")
+        if not os.path.exists(demo_file):
+            print(f"[WARN] Missing demo file for {task_name}")
             continue
-        print(f"[t={t}] {n_contacts} contacts:")
-        for i in range(n_contacts):
-            contact = env.sim.data.contact[i]
-            g1 = env.sim.model.geom_id2name(contact.geom1)
-            g2 = env.sim.model.geom_id2name(contact.geom2)
-            ee_hit = g1 in EE_GEOM_NAMES or g2 in EE_GEOM_NAMES
-            print(f"  {g1} <-> {g2}" + ("  [EE CONTACT]" if ee_hit else ""))
+
+        data_dict = load_hdf5_to_dict(demo_file)
+        demo_keys = list(data_dict['data'].keys())
+        demo = data_dict['data'][demo_keys[0]]
+        states = demo['states']
+        total_steps = len(states)
+
+        env, _ = get_libero_env(task, model_family="openvla", resolution=256)
+
+        contact_found = False
+        for t, sim_state in enumerate(states):
+            env.set_init_state(sim_state)
+            for i in range(env.sim.data.ncon):
+                contact = env.sim.data.contact[i]
+                g1 = env.sim.model.geom_id2name(contact.geom1)
+                g2 = env.sim.model.geom_id2name(contact.geom2)
+                if g1 in EE_GEOM_NAMES or g2 in EE_GEOM_NAMES:
+                    print(f"[TASK] {task_name}")
+                    print(f"  [CONTACT] {g1} <-> {g2}")
+                    print(f"  [STEP] {t+1} / {total_steps}")
+                    contact_found = True
+                    break
+            if contact_found:
+                break
+
+        if not contact_found:
+            print(f"[TASK] {task_name}")
+            print(f"  [INFO] No EE contact found in first demo.")
