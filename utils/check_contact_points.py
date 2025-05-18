@@ -1,12 +1,20 @@
 import os
 import h5py
-import numpy as np
 from libero.libero import benchmark
 from experiments.robot.libero.libero_utils import get_libero_env
 
 def load_hdf5_to_dict(file_path):
+    def recursively_extract(group):
+        result = {}
+        for key in group:
+            item = group[key]
+            if isinstance(item, h5py.Dataset):
+                result[key] = item[()]
+            elif isinstance(item, h5py.Group):
+                result[key] = recursively_extract(item)
+        return result
     with h5py.File(file_path, 'r') as file:
-        return {k: v[()] if isinstance(v, h5py.Dataset) else None for k, v in file['data'].items()}
+        return recursively_extract(file)
 
 if __name__ == "__main__":
     data_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/libero_90_no_noops/"
@@ -18,20 +26,19 @@ if __name__ == "__main__":
 
     env, _ = get_libero_env(task, model_family="openvla", resolution=256)
     demo_file = os.path.join(data_dir, f"{task_name}_demo.hdf5")
+    data_dict = load_hdf5_to_dict(demo_file)
 
-    with h5py.File(demo_file, 'r') as f:
-        demo_keys = list(f['data'].keys())
-        demo = f['data'][demo_keys[0]]
-        states = demo['states']
+    demo_keys = list(data_dict['data'].keys())
+    demo = data_dict['data'][demo_keys[0]]
+    states = demo['states']
 
     EE_GEOM_NAMES = ["robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1"]
 
     for t, sim_state in enumerate(states):
-        env.set_init_state(sim_state[()])
+        env.set_init_state(sim_state)
         n_contacts = env.sim.data.ncon
         if n_contacts == 0:
             continue
-
         print(f"[t={t}] {n_contacts} contacts:")
         for i in range(n_contacts):
             contact = env.sim.data.contact[i]
