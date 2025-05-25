@@ -198,15 +198,9 @@ def set_local_inits(cfg, env, task_name):
     print(env.get_sim_state().copy().shape)
 
     idx = np.random.randint(len(all_states))
+    # yy: all_states[idx] is composed of [joint, gripper, extra_state], where extra_state already contains the robot proprio.
+    #  extra_state is with same length of env.get_sim_state().copy()[9:], i.e., 86 - 9 = 77.
     sim_state = all_states[idx][9:]  # states - containing all the information, including objects placements/robot proprio
-
-    # sampled_robot_local_state = all_states[idx]  # shape: [9,]
-    #
-    # sim_state = env.get_sim_state().copy()  # sim_state -> [77,]
-    # sim_state[1:10] = sampled_robot_local_state
-    # # set joint and gripper vel as 0
-    # sim_state[34:36] = np.zeros([2])  # gripper vel
-    # sim_state[27:34] = np.zeros([7])  # joint vel
 
     obs = env.set_init_state(sim_state)
     return obs
