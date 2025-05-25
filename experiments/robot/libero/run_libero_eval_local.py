@@ -192,10 +192,10 @@ def set_local_inits(cfg, env, task_name):
     if len(all_states) == 0:
         return None
 
-    # yy: debug
-    sample = all_states[0]
-    print(len(sample), sample[:9])
-    print(env.get_sim_state().copy().shape)
+    # # yy: debug
+    # sample = all_states[0]
+    # print(len(sample), sample[:9])
+    # print(env.get_sim_state().copy().shape)
 
     idx = np.random.randint(len(all_states))
     # yy: all_states[idx] is composed of [joint, gripper, extra_state], where extra_state already contains the robot proprio.
