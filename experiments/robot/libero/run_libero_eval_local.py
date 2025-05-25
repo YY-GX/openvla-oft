@@ -66,6 +66,7 @@ class TaskSuite(str, Enum):
     LIBERO_LOCAL2 = "libero_local2"
     LIBERO_LOCAL3 = "libero_local3"
     GL_SIZE = "gl_size"
+    BOSS_44 = "boss_44"
 
 
 # Define max steps for each task suite
@@ -79,6 +80,7 @@ TASK_MAX_STEPS = {
     TaskSuite.LIBERO_LOCAL2: 400,  # longest training demo has 373 steps
     TaskSuite.LIBERO_LOCAL3: 400,  # longest training demo has 373 steps
     TaskSuite.GL_SIZE: 400,  # longest training demo has 373 steps
+    TaskSuite.BOSS_44: 400,  # longest training demo has 373 steps
 }
 
 
