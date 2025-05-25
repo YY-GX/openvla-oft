@@ -191,6 +191,12 @@ def set_local_inits(cfg, env, task_name):
         all_states = pickle.load(f)  # shape: [num_demos, 9+*]
     if len(all_states) == 0:
         return None
+
+    # yy: debug
+    sample = all_states[0]
+    print(len(sample), sample[:9])
+    print(env.get_sim_state().copy().shape)
+
     idx = np.random.randint(len(all_states))
     sim_state = all_states[idx][9:]  # states - containing all the information, including objects placements/robot proprio
 
@@ -414,6 +420,9 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
     unnorm_key = cfg.task_suite_name
     if unnorm_key in ["gl_size", "gl_color"]:
         unnorm_key = "libero_local3"
+
+    if unnorm_key == "boss_44":
+        unnorm_key = "libero44_local"
 
     # In some cases, the key must be manually modified (e.g. after training on a modified version of the dataset
     # with the suffix "_no_noops" in the dataset name)
