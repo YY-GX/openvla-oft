@@ -413,7 +413,8 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
     # Initialize unnorm_key
     unnorm_key = cfg.task_suite_name
     if unnorm_key in ["gl_size", "gl_color"]:
-        unnorm_key = "libero_local3"
+        # unnorm_key = "libero_local3"
+        unnorm_key = "libero44_local"
 
     if unnorm_key == "boss_44":
         unnorm_key = "libero44_local"
@@ -817,7 +818,10 @@ def eval_libero(cfg: GenerateConfig) -> float:
     # Initialize LIBERO task suite
     benchmark_dict = benchmark.get_benchmark_dict()
     if cfg.is_oss:
-        task_suite = benchmark_dict[f"ch1_{cfg.task_suite_name}"]()
+        if cfg.task_suite_name == "boss_44":
+            task_suite = benchmark_dict[f"ch1"]()
+        else:
+            task_suite = benchmark_dict[f"ch1_{cfg.task_suite_name}"]()
     else:
         task_suite = benchmark_dict[cfg.task_suite_name]()
     num_tasks = task_suite.n_tasks
