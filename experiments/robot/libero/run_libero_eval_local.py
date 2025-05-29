@@ -191,6 +191,8 @@ def set_local_inits(cfg, env, task_name):
         all_states = pickle.load(f)  # shape: [num_demos, 9+*]
     if len(all_states) == 0:
         return None
+    if len(all_states) >= 20:
+        all_states = all_states[:20]  # yy: Limit to 20 inits for fair evaluation
 
     # # yy: debug
     # sample = all_states[0]
