@@ -422,6 +422,7 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
 
     if unnorm_key == "boss_44":
         unnorm_key = "libero44_local"
+        unnorm_key = "libero44_local_depth"
 
     # In some cases, the key must be manually modified (e.g. after training on a modified version of the dataset
     # with the suffix "_no_noops" in the dataset name)
