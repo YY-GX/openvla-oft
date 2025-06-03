@@ -549,8 +549,6 @@ def prepare_observation(obs, resize_size, cfg):
         else:
             # this means wrist only
             observation["full_image"] = get_libero_wrist_image_depth(obs)
-            print(img.shape)
-            print(observation["full_image"].shape)
         img = get_libero_image_depth(obs)
 
     return observation, img  # Return both processed observation and original image for replay
