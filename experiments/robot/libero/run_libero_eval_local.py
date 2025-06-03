@@ -543,9 +543,12 @@ def prepare_observation(obs, resize_size, cfg):
 
     if cfg.is_depth:
         if "wrist_image" in observation:
+            # this means wrist + 3rd
             observation["wrist_image"] = get_libero_wrist_image_depth(obs)
-        elif "full_image" in observation:
             observation["full_image"] = get_libero_image_depth(obs)
+        else:
+            # this means wrist only
+            observation["full_image"] = get_libero_wrist_image_depth(obs)
         img = get_libero_image_depth(obs)
 
     return observation, img  # Return both processed observation and original image for replay
