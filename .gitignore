@@ -157,3 +157,5 @@ datasets/
 logs/
 
 imgs/
+*.pyc
+
