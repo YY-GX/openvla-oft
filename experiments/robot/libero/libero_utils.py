@@ -43,6 +43,24 @@ def get_libero_wrist_image(obs):
     img = img[::-1, ::-1]  # IMPORTANT: rotate 180 degrees to match train preprocessing
     return img
 
+# yy: I add the following 2 functions
+def get_libero_image_depth(obs):
+    """Extracts third-person depth image, rotates it 180°, and duplicates channel to (256, 256, 3)."""
+    img = obs["agentview_depth"]  # Expected shape: (256, 256, 1)
+    img = img[::-1, ::-1]  # Rotate 180° (vertical + horizontal flip)
+
+    # Duplicate the depth channel to 3 channels
+    img_3ch = np.repeat(img, 3, axis=2)  # Shape: (256, 256, 3)
+
+    return img_3ch
+
+def get_libero_wrist_image_depth(obs):
+    """Extracts wrist camera depth image, rotates it 180°, and duplicates channel to (256, 256, 3)."""
+    img = obs["robot0_eye_in_hand_depth"]  # Expected shape: (256, 256, 1)
+    img = img[::-1, ::-1]  # Rotate 180° (vertical + horizontal flip)
+    # Duplicate the single channel 3 times along the last axis
+    img_3ch = np.repeat(img, 3, axis=2)  # Shape: (256, 256, 3)
+    return img_3ch
 
 def save_rollout_video(rollout_images, idx, success, task_description, log_file=None):
     """Saves an MP4 replay of an episode."""
