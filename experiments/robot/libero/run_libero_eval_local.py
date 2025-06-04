@@ -288,6 +288,7 @@ def save_all_success_rates_to(results_folder, task_success_rates):
 
 # yy: save rollouts for vis
 def maybe_save_rollout_obs(
+        cfg,
         obs_list,
         actions,
         task_name: str,
@@ -297,7 +298,7 @@ def maybe_save_rollout_obs(
         success_count: int,
         failure_count: int,
         max_failures=3,
-        max_successes=1
+        max_successes=1,
 ):
     if success and success_count >= max_successes:
         return success_count, failure_count
@@ -309,6 +310,8 @@ def maybe_save_rollout_obs(
     gripper_states = np.array([o["robot0_gripper_qpos"] for o in obs_list])
     agent_imgs = np.array([o["agentview_image"] for o in obs_list])
     wrist_imgs = np.array([o["robot0_eye_in_hand_image"] for o in obs_list])
+    if cfg.is_depth:
+        wrist_imgs = np.array([np.repeat(o["robot0_eye_in_hand_image_depth"], 3, axis=2) for o in obs_list])
     actions_np = np.array(actions)
 
     task_dir = results_folder / task_name
@@ -757,6 +760,7 @@ def run_task(
 
         # Save rollout for rerun (via encapsulated maybe_save_rollout_obs(...) )
         saved_successes, saved_failures = maybe_save_rollout_obs(
+            cfg,
             obs_list,
             actions,
             task_name,
@@ -764,7 +768,7 @@ def run_task(
             success,
             results_folder,
             saved_successes,
-            saved_failures
+            saved_failures,
         )
 
         # Update counters
