@@ -33,6 +33,8 @@ from experiments.robot.libero.libero_utils import (
     get_libero_env,
     get_libero_image,
     get_libero_wrist_image,
+    get_libero_image_depth,
+    get_libero_wrist_image_depth,
     quat2axisangle,
     save_rollout_video,
 )
@@ -148,7 +150,7 @@ class GenerateConfig:
     agent_only: bool = False                         # TODO: change to True while using it
     pro_only: bool = False                           # TODO: change to True while using it
     is_oss: bool = False                             # Whether to OSS happens TODO: change to True while using it
-
+    is_depth: bool = False                           # Whether only wrist cam view TODO: change to True while using it
 
 
     # fmt: on
@@ -266,7 +268,7 @@ def get_eval_results_folder(cfg):
 
     while True:
         folder = base / cfg.task_suite_name / f"ckpt_{ckpt_version}_{ckpt_steps}" \
-                 f"_wrist_only_{cfg.wrist_only}_agent_only_{cfg.agent_only}_pro_only_{cfg.pro_only}_is_oss_{cfg.is_oss}_v{version}"
+                 f"_wrist_only_{cfg.wrist_only}_agent_only_{cfg.agent_only}_pro_only_{cfg.pro_only}_is_oss_{cfg.is_oss}_is_depth_{cfg.is_depth}_v{version}"
         if not folder.exists():
             break
         version += 1
@@ -420,6 +422,7 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
 
     if unnorm_key == "boss_44":
         unnorm_key = "libero44_local"
+        unnorm_key = "libero44_local_depth"
 
     # In some cases, the key must be manually modified (e.g. after training on a modified version of the dataset
     # with the suffix "_no_noops" in the dataset name)
@@ -435,7 +438,7 @@ def check_unnorm_key(cfg: GenerateConfig, model) -> None:
 def setup_logging(cfg: GenerateConfig):
     """Set up logging to file and optionally to wandb."""
     # Create run ID
-    run_id = f"EVAL-{cfg.task_suite_name}-IS_OSS_{cfg.is_oss}-{cfg.model_family}-{DATE_TIME}"
+    run_id = f"EVAL-{cfg.task_suite_name}-IS_OSS_{cfg.is_oss}-IS_DEPTH_{cfg.is_depth}-{cfg.model_family}-{DATE_TIME}"
     if cfg.run_id_note is not None:
         run_id += f"--{cfg.run_id_note}"
 
@@ -538,6 +541,15 @@ def prepare_observation(obs, resize_size, cfg):
             observation["wrist_image"] = noise_img
         img = noise_img
 
+    if cfg.is_depth:
+        if "wrist_image" in observation:
+            # this means wrist + 3rd
+            observation["wrist_image"] = get_libero_wrist_image_depth(obs)
+            observation["full_image"] = get_libero_image_depth(obs)
+        else:
+            # this means wrist only
+            observation["full_image"] = get_libero_wrist_image_depth(obs)
+        img = get_libero_image_depth(obs)
 
     return observation, img  # Return both processed observation and original image for replay
 

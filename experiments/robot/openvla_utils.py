@@ -622,7 +622,7 @@ def center_crop_image(image: Union[np.ndarray, Image.Image]) -> Image.Image:
     return Image.fromarray(image.numpy()).convert("RGB")
 
 
-def check_image_format(image: Any) -> None:
+def check_image_format(image: Any, cfg) -> None:
     """
     Validate input image format.
 
@@ -635,6 +635,8 @@ def check_image_format(image: Any) -> None:
     is_numpy_array = isinstance(image, np.ndarray)
     has_correct_shape = len(image.shape) == 3 and image.shape[-1] == 3
     has_correct_dtype = image.dtype == np.uint8
+    if cfg.is_depth:
+        has_correct_dtype = True  # yy: I add this for depth case
 
     assert is_numpy_array and has_correct_shape and has_correct_dtype, (
         "Incorrect image format detected! Make sure that the input image is a "
@@ -690,7 +692,7 @@ def prepare_images_for_vla(images: List[np.ndarray], cfg: Any) -> List[Image.Ima
 
     for image in images:
         # Validate format
-        check_image_format(image)
+        check_image_format(image, cfg)
 
         # Resize if needed
         if image.shape != (OPENVLA_IMAGE_SIZE, OPENVLA_IMAGE_SIZE, 3):
