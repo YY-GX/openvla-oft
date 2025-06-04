@@ -311,7 +311,7 @@ def maybe_save_rollout_obs(
     agent_imgs = np.array([o["agentview_image"] for o in obs_list])
     wrist_imgs = np.array([o["robot0_eye_in_hand_image"] for o in obs_list])
     if cfg.is_depth:
-        wrist_imgs = np.array([np.repeat(o["robot0_eye_in_hand_image_depth"], 3, axis=2) for o in obs_list])
+        wrist_imgs = np.array([np.repeat(o["robot0_eye_in_hand_depth"], 3, axis=2) for o in obs_list])
     actions_np = np.array(actions)
 
     task_dir = results_folder / task_name
