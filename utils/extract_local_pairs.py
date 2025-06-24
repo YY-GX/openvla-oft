@@ -271,7 +271,10 @@ def main():
                 for pose_idx, (pose, pose_timestep) in zip(pose_indices, poses_with_timesteps):
                     # Find the overview image index for the current pose timestep
                     overview_idx_for_pose = None
-                    if pose_timestep < len(overview_image_indices):
+                    # Calculate how many overview images we have based on the first contact timestep
+                    num_overview_images = int(first_contact_timestep * args.overview_percentage / 100)
+                    if pose_timestep < num_overview_images:
+                        # Map pose timestep to overview image index
                         overview_idx_for_pose = overview_image_indices[pose_timestep]
                     
                     for overview_idx in overview_image_indices:
