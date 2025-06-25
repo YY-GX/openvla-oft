@@ -201,6 +201,8 @@ def main():
     os.makedirs(args.save_dir, exist_ok=True)
     images_dir = os.path.join(args.save_dir, "3rd_imgs")
     os.makedirs(images_dir, exist_ok=True)
+    debugging_images_dir = os.path.join(args.save_dir, "debugging_imgs")
+    os.makedirs(debugging_images_dir, exist_ok=True)
 
     # Get all demo files
     demo_files = sorted(glob.glob(os.path.join(args.raw_demo_dir, "*.hdf5")))
@@ -211,6 +213,7 @@ def main():
     all_pairs = []
     image_counter = 0
     pose_counter = 0
+    debugging_image_counter = 0
 
     # Process each demo file
     for file_path in tqdm(demo_files, desc="Processing demo files"):
@@ -249,11 +252,21 @@ def main():
                 # Extract pre-contact poses
                 poses_with_timesteps = extract_pre_contact_poses(demo, contact_timestep, args.pre_contact, args.pre_contact_range)
                 
-                # Save poses
+                # Save poses and corresponding debugging images
                 pose_indices = []
+                pose_to_debug_image = {}  # Map pose index to debugging image index
                 for pose, pose_timestep in poses_with_timesteps:
                     all_poses.append(pose)
                     pose_indices.append(pose_counter)
+                    
+                    # Save the image at pose_timestep to debugging folder
+                    pose_image = demo['obs']['agentview_rgb'][pose_timestep]
+                    debug_img_filename = f"{debugging_image_counter:05d}.jpg"
+                    debug_img_path = os.path.join(debugging_images_dir, debug_img_filename)
+                    save_image(pose_image, debug_img_path)
+                    pose_to_debug_image[pose_counter] = debugging_image_counter
+                    debugging_image_counter += 1
+                    
                     pose_counter += 1
                 
                 # Determine language description
@@ -269,13 +282,8 @@ def main():
                 
                 # Create pairs
                 for pose_idx, (pose, pose_timestep) in zip(pose_indices, poses_with_timesteps):
-                    # Find the overview image index for the current pose timestep
-                    overview_idx_for_pose = None
-                    # Calculate how many overview images we have based on the first contact timestep
-                    num_overview_images = int(first_contact_timestep * args.overview_percentage / 100)
-                    if pose_timestep < num_overview_images:
-                        # Map pose timestep to overview image index
-                        overview_idx_for_pose = overview_image_indices[pose_timestep]
+                    # Get the debugging image index for this pose
+                    overview_idx_for_pose = pose_to_debug_image[pose_idx]
                     
                     for overview_idx in overview_image_indices:
                         pair = {
