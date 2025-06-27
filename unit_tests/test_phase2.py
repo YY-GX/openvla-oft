@@ -208,35 +208,31 @@ class Phase2Tester:
         try:
             # Create mock components
             class MockVisionBackbone:
-                def __init__(self):
-                    self.embed_dim = self.hidden_dim
+                def __init__(self, hidden_dim):
+                    self.embed_dim = hidden_dim
                     self.identifier = "mock_vision"
                 
                 def __call__(self, images):
-                    return torch.randn(images.shape[0], images.shape[1], self.hidden_dim, device=images.device)
+                    return torch.randn(images.shape[0], images.shape[1], self.embed_dim, device=images.device)
             
             class MockLLMBackbone:
-                def __init__(self):
-                    self.embed_dim = self.hidden_dim
+                def __init__(self, hidden_dim):
+                    self.embed_dim = hidden_dim
                     self.identifier = "mock_llm"
                     self.config = type('Config', (), {
-                        'hidden_size': self.hidden_dim,
+                        'hidden_size': hidden_dim,
                         'pad_token_id': 0
                     })()
                 
                 def __call__(self, **kwargs):
                     batch_size = kwargs['input_ids'].shape[0]
                     seq_len = kwargs['input_ids'].shape[1]
-                    hidden_states = torch.randn(batch_size, seq_len, self.hidden_dim, device=kwargs['input_ids'].device)
+                    hidden_states = torch.randn(batch_size, seq_len, self.embed_dim, device=kwargs['input_ids'].device)
                     return type('Output', (), {'hidden_states': [hidden_states]})()
             
-            class MockProjector:
-                def __call__(self, image_features):
-                    return image_features  # Identity projection
-            
             # Create PoseVLM with mock components
-            vision_backbone = MockVisionBackbone()
-            llm_backbone = MockLLMBackbone()
+            vision_backbone = MockVisionBackbone(self.hidden_dim)
+            llm_backbone = MockLLMBackbone(self.hidden_dim)
             
             pose_vlm = PoseVLM(
                 model_id="test_model",
