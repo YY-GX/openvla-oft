@@ -223,6 +223,13 @@ class Phase2Tester:
                         'hidden_size': hidden_dim,
                         'pad_token_id': 0
                     })()
+                    
+                    # Create mock llm object that the base VLM expects
+                    self.llm = type('MockLLM', (), {
+                        'generation_config': type('GenerationConfig', (), {})(),
+                        'config': self.config,
+                        '_reorder_cache': lambda past_key_values, beam_idx: past_key_values
+                    })()
                 
                 def __call__(self, **kwargs):
                     batch_size = kwargs['input_ids'].shape[0]
