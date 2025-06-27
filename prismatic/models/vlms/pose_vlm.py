@@ -11,17 +11,14 @@ from typing import Optional, Dict, Any, Tuple
 import logging
 
 from prismatic.models.vlms.prismatic import PrismaticVLM
-from prismatic.models.registry import register_model
-from prismatic.models.vision.base_vision import BaseVisionBackbone
-from prismatic.models.backbones.llm.base_llm import BaseLLMBackbone
-from prismatic.models.projectors import BaseProjector
+from prismatic.models.backbones.vision import VisionBackbone
+from prismatic.models.backbones.llm import LLMBackbone
 from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
 
 
 logger = logging.getLogger(__name__)
 
 
-@register_model("pose_vlm")
 class PoseVLM(PrismaticVLM):
     """
     PoseVLM model for pose prediction from vision and language inputs.
@@ -35,41 +32,39 @@ class PoseVLM(PrismaticVLM):
     
     def __init__(
         self,
-        vision_backbone: BaseVisionBackbone,
-        llm_backbone: BaseLLMBackbone,
-        projector: BaseProjector,
+        model_id: str,
+        vision_backbone: VisionBackbone,
+        llm_backbone: LLMBackbone,
         pose_head_type: str = "gmm",  # "gmm" or "simple"
         pose_dim: int = 6,  # 3D position + 3D orientation
         num_pose_tokens: int = 6,  # Number of pose tokens (same as original action tokens)
-        gmm_num_components: int = 5,  # For GMM pose head
-        use_film: bool = False,  # Disable FiLM by default for pose prediction
+        gmm_num_components: int = 3,  # For GMM pose head (reduced from 5 to 3)
+        enable_mixed_precision_training: bool = True,
+        arch_specifier: str = "gelu-mlp",
         **kwargs
     ):
         """
         Initialize PoseVLM model.
         
         Args:
+            model_id: Model identifier
             vision_backbone: Vision backbone for image processing
             llm_backbone: Language model backbone
-            projector: Projector for vision-language fusion
             pose_head_type: Type of pose head ("gmm" or "simple")
             pose_dim: Dimension of pose (6 for 3D pos + 3D ori)
             num_pose_tokens: Number of pose tokens
             gmm_num_components: Number of GMM components
-            use_film: Whether to use FiLM conditioning
+            enable_mixed_precision_training: Whether to enable mixed precision
+            arch_specifier: Architecture specifier for projector
             **kwargs: Additional arguments passed to PrismaticVLM
         """
-        # Remove proprioception from kwargs
-        kwargs.pop('use_proprio', None)
-        kwargs['use_proprio'] = False
-        
-        # Initialize parent class without proprioception
+        # Initialize parent class
         super().__init__(
+            model_id=model_id,
             vision_backbone=vision_backbone,
             llm_backbone=llm_backbone,
-            projector=projector,
-            use_proprio=False,  # Force disable proprioception
-            use_film=use_film,
+            enable_mixed_precision_training=enable_mixed_precision_training,
+            arch_specifier=arch_specifier,
             **kwargs
         )
         
@@ -88,7 +83,7 @@ class PoseVLM(PrismaticVLM):
     def _setup_pose_head(self):
         """Setup pose head based on configuration."""
         # Get hidden dimension from LLM
-        hidden_dim = self.llm_backbone.config.hidden_size
+        hidden_dim = self.llm_backbone.embed_dim
         
         if self.pose_head_type == "gmm":
             self.pose_head = GMMPoseHead(
@@ -106,7 +101,7 @@ class PoseVLM(PrismaticVLM):
         else:
             raise ValueError(f"Unknown pose head type: {self.pose_head_type}")
         
-        # Remove original action head
+        # Remove original action head if it exists
         if hasattr(self, 'action_head'):
             delattr(self, 'action_head')
     
@@ -246,10 +241,6 @@ class PoseVLM(PrismaticVLM):
             'attention_mask': attention_mask,
         }
         
-        # Add image features for FiLM conditioning if enabled
-        if self.use_film:
-            llm_inputs['image_features'] = projected_image_features
-        
         return llm_inputs
     
     def _extract_pose_hidden_states(
@@ -385,8 +376,7 @@ class PoseVLM(PrismaticVLM):
         pose_head_type: str = "gmm",
         pose_dim: int = 6,
         num_pose_tokens: int = 6,
-        gmm_num_components: int = 5,
-        use_film: bool = False,
+        gmm_num_components: int = 3,
         **kwargs
     ) -> "PoseVLM":
         """
@@ -398,7 +388,6 @@ class PoseVLM(PrismaticVLM):
             pose_dim: Dimension of pose
             num_pose_tokens: Number of pose tokens
             gmm_num_components: Number of GMM components
-            use_film: Whether to use FiLM
             **kwargs: Additional arguments
         
         Returns:
@@ -409,14 +398,15 @@ class PoseVLM(PrismaticVLM):
         
         # Create PoseVLM with same components
         model = cls(
+            model_id=base_model.model_id,
             vision_backbone=base_model.vision_backbone,
             llm_backbone=base_model.llm_backbone,
-            projector=base_model.projector,
             pose_head_type=pose_head_type,
             pose_dim=pose_dim,
             num_pose_tokens=num_pose_tokens,
             gmm_num_components=gmm_num_components,
-            use_film=use_film,
+            enable_mixed_precision_training=base_model.enable_mixed_precision_training,
+            arch_specifier=base_model.arch_specifier,
         )
         
         # Copy weights from base model (excluding action head)
