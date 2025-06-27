@@ -263,6 +263,9 @@ class Phase2Tester:
                 gmm_num_components=self.num_components,
             )
             
+            # Move model to device
+            pose_vlm = pose_vlm.to(self.device)
+            
             # Test forward pass
             images = torch.randn(self.batch_size, 2, 3, 224, 224, device=self.device)  # 2 images per sample
             text = torch.randint(0, 1000, (self.batch_size, 20), device=self.device)  # Mock text tokens
