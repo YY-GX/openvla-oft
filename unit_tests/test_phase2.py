@@ -224,12 +224,24 @@ class Phase2Tester:
                         'pad_token_id': 0
                     })()
                     
+                    # Create mock tokenizer
+                    class MockTokenizer:
+                        def encode(self, text, add_special_tokens=False):
+                            # Return a single token ID for any input
+                            return [1]  # Always return token ID 1
+                    
+                    self.tokenizer = MockTokenizer()
+                    
                     # Create mock llm object that the base VLM expects
                     self.llm = type('MockLLM', (), {
                         'generation_config': type('GenerationConfig', (), {})(),
                         'config': self.config,
                         '_reorder_cache': lambda past_key_values, beam_idx: past_key_values
                     })()
+                    
+                    # Add other required attributes
+                    self.prompt_builder_fn = type('MockPromptBuilder', (), {})
+                    self.last_layer_finetune_modules = []
                 
                 def __call__(self, **kwargs):
                     batch_size = kwargs['input_ids'].shape[0]
