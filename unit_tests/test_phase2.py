@@ -42,7 +42,7 @@ class Phase2Tester:
         self.batch_size = 4
         self.hidden_dim = 4096
         self.pose_dim = 6
-        self.num_components = 5
+        self.num_components = 3  # Changed from 5 to 3 to match user's change
         self.num_pose_tokens = 6
         
     def test_gmm_pose_head(self) -> bool:
@@ -187,7 +187,8 @@ class Phase2Tester:
             factory_aug = create_pose_augmentation("euler", position_std=0.02, orientation_std=0.1)
             assert isinstance(factory_aug, PoseAugmentation), "Factory should return PoseAugmentation"
             
-            # Test augmentation statistics
+            # Test augmentation statistics - re-enable augmentation first
+            euler_aug.set_enabled(True)  # Re-enable for stats test
             stats = euler_aug.get_augmentation_stats(num_samples=100)
             assert "enabled" in stats, "Stats should contain enabled flag"
             assert "position_shift_mean" in stats, "Stats should contain position shift mean"
@@ -208,13 +209,16 @@ class Phase2Tester:
             # Create mock components
             class MockVisionBackbone:
                 def __init__(self):
-                    self.config = type('Config', (), {'hidden_size': self.hidden_dim})()
+                    self.embed_dim = self.hidden_dim
+                    self.identifier = "mock_vision"
                 
                 def __call__(self, images):
                     return torch.randn(images.shape[0], images.shape[1], self.hidden_dim, device=images.device)
             
             class MockLLMBackbone:
                 def __init__(self):
+                    self.embed_dim = self.hidden_dim
+                    self.identifier = "mock_llm"
                     self.config = type('Config', (), {
                         'hidden_size': self.hidden_dim,
                         'pad_token_id': 0
@@ -233,12 +237,11 @@ class Phase2Tester:
             # Create PoseVLM with mock components
             vision_backbone = MockVisionBackbone()
             llm_backbone = MockLLMBackbone()
-            projector = MockProjector()
             
             pose_vlm = PoseVLM(
+                model_id="test_model",
                 vision_backbone=vision_backbone,
                 llm_backbone=llm_backbone,
-                projector=projector,
                 pose_head_type="gmm",
                 pose_dim=self.pose_dim,
                 num_pose_tokens=self.num_pose_tokens,
