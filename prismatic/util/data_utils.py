@@ -154,3 +154,68 @@ class PaddedCollatorForActionPrediction:
         if dataset_names is not None:
             output["dataset_names"] = dataset_names
         return output
+
+
+@dataclass
+class PaddedCollatorForPosePrediction:
+    """
+    Collator for pose prediction, following original action prediction patterns.
+    
+    Handles batching of pose data with proper padding and stacking.
+    """
+    model_max_length: int
+    pad_token_id: int
+    padding_side: str = "right"
+    pixel_values_dtype: torch.dtype = torch.float32
+
+    def __call__(self, instances: Sequence[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+        """
+        Collate pose prediction batch.
+        
+        Args:
+            instances: List of pose prediction samples
+            
+        Returns:
+            Batched tensors for pose prediction
+        """
+        # Extract common fields
+        input_ids = [instance["input_ids"] for instance in instances]
+        attention_mask = [instance["attention_mask"] for instance in instances]
+        pixel_values = [instance["pixel_values"] for instance in instances]
+        pose_targets = [instance["pose_targets"] for instance in instances]
+        
+        # Handle optional fields
+        language_descriptions = [instance.get("language_description", "") for instance in instances]
+        overview_image_indices = [instance.get("overview_image_idx", -1) for instance in instances]
+        ee_pose_indices = [instance.get("ee_pose_idx", -1) for instance in instances]
+
+        # Pad sequences (following original patterns)
+        assert self.padding_side == "right", f"Invalid Tokenizer `{self.padding_side = }`"
+        input_ids = pad_sequence(input_ids, batch_first=True, padding_value=self.pad_token_id)
+        attention_mask = pad_sequence(attention_mask, batch_first=True, padding_value=0)
+
+        # Truncate if necessary
+        input_ids = input_ids[:, : self.model_max_length]
+        attention_mask = attention_mask[:, : self.model_max_length]
+
+        # Stack pixel values (following original patterns)
+        if isinstance(pixel_values[0], torch.Tensor):
+            pixel_values = torch.stack(pixel_values)
+        else:
+            raise ValueError(f"Unsupported `pixel_values` type = {type(pixel_values)}")
+
+        # Stack pose targets
+        pose_targets = torch.stack(pose_targets)
+
+        # Create output dictionary
+        output = dict(
+            pixel_values=pixel_values,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            pose_targets=pose_targets,
+            language_descriptions=language_descriptions,
+            overview_image_indices=overview_image_indices,
+            ee_pose_indices=ee_pose_indices,
+        )
+
+        return output
