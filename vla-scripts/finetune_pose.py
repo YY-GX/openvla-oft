@@ -37,6 +37,8 @@ from experiments.robot.openvla_utils import (
 from prismatic.extern.hf.configuration_prismatic import OpenVLAConfig
 from prismatic.extern.hf.modeling_prismatic import OpenVLAForActionPrediction
 from prismatic.extern.hf.processing_prismatic import PrismaticImageProcessor, PrismaticProcessor
+from prismatic.models import load_pose_vla
+from prismatic.models.vlms.pose_vlm import PoseVLM
 from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
 from prismatic.models.backbones.llm.prompting import PurePromptBuilder
 from prismatic.models.film_vit_wrapper import FiLMedPrismaticVisionBackbone
@@ -45,7 +47,7 @@ from prismatic.models.projectors import (
     ProprioProjector,
 )
 from prismatic.util.data_utils import PaddedCollatorForPosePrediction
-from prismatic.vla.datasets.pose_dataset import PoseDataset, create_pose_dataset
+from prismatic.vla.datasets.pose_dataset import create_pose_dataset
 from prismatic.util.pose_augmentation import create_pose_augmentation
 
 # Sane Defaults
