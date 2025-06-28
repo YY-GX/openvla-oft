@@ -646,7 +646,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         param.requires_grad = False
     
     # Initialize pose head
-    hidden_dim = vla.config.text_config.hidden_size
+    hidden_dim = vla.config.hidden_size
     if cfg.pose_head_type == "gmm":
         pose_head = GMMPoseHead(
             input_dim=hidden_dim,
