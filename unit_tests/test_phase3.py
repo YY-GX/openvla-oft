@@ -114,7 +114,7 @@ def test_partial_loading_self_contained():
         import prismatic.models.load as load_module
         
         # Mock the load_vla function to avoid loading actual models
-        with patch.object(load_module, 'load_vla') as mock_load_vla:
+        with patch('prismatic.models.load.load_vla') as mock_load_vla:
             # Create a mock VLA model
             mock_vla = Mock()
             mock_vla.vision_backbone = Mock()
@@ -174,7 +174,7 @@ def test_partial_loading_full():
             checkpoint_dir.mkdir()
             
             # Mock the load_vla function
-            with patch.object(load_module, 'load_vla') as mock_load_vla:
+            with patch('prismatic.models.load.load_vla') as mock_load_vla:
                 # Create a more realistic mock VLA model
                 mock_vla = Mock()
                 mock_vla.vision_backbone = Mock()
