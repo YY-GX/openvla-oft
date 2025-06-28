@@ -40,6 +40,6 @@ sbatch \
     --pose_aug_position_std 0.02 \
     --pose_aug_orientation_std 0.1 \
     --lora_rank 32 \
-    --wandb_entity 'your-wandb-entity' \
+    --wandb_entity 'yygx' \
     --wandb_project 'openvla-oft-pose' \
     --run_id_note 'single_gpu_test'" 
