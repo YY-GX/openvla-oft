@@ -122,11 +122,15 @@ def test_partial_loading_self_contained():
         
         # Mock the load_vla function to avoid loading actual models
         with patch.object(load_module, 'load_vla') as mock_load_vla:
-            # Create a mock VLA model
+            # Create a mock VLA model with proper attributes
             mock_vla = Mock()
             mock_vla.vision_backbone = Mock()
             mock_vla.llm_backbone = Mock()
+            mock_vla.llm_backbone.embed_dim = 4096  # Set proper embed_dim
+            mock_vla.llm_backbone.config = Mock()
+            mock_vla.llm_backbone.config.pad_token_id = 0
             mock_vla.tokenizer = Mock()
+            mock_vla.config = Mock()
             mock_vla.config.hidden_size = 4096
             mock_vla.parameters.return_value = [Mock(requires_grad=True)]
             
@@ -138,6 +142,10 @@ def test_partial_loading_self_contained():
                 mock_pose_vlm.pose_head = Mock()
                 mock_pose_vlm.pose_head_type = "gmm"
                 mock_pose_vlm.use_proprio = False
+                mock_pose_vlm.llm_backbone = Mock()
+                mock_pose_vlm.llm_backbone.embed_dim = 4096
+                mock_pose_vlm.llm_backbone.config = Mock()
+                mock_pose_vlm.llm_backbone.config.pad_token_id = 0
                 mock_pose_vlm_class.return_value = mock_pose_vlm
                 
                 # Test loading with GMM pose head
