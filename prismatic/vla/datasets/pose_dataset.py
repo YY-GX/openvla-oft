@@ -193,12 +193,15 @@ class PoseDataset(Dataset):
             # Load image(s)
             if self.num_images_in_input == 1:
                 image = self._load_image(sample['overview_image_idx'])
-                pixel_values = image  # Don't add extra batch dimension
+                # Duplicate channels to match OpenVLA's expected 6-channel format (3 regular + 3 fused)
+                pixel_values = torch.cat([image, image], dim=0)  # (6, height, width)
             elif self.num_images_in_input == 2:
                 # For 2 images, we could load the same image twice or implement different logic
                 # For now, just duplicate the image
                 image = self._load_image(sample['overview_image_idx'])
-                pixel_values = torch.stack([image, image])
+                # Duplicate channels for each image
+                image_6ch = torch.cat([image, image], dim=0)  # (6, height, width)
+                pixel_values = torch.stack([image_6ch, image_6ch])
             else:
                 raise ValueError(f"Unsupported num_images_in_input: {self.num_images_in_input}")
             
