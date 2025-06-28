@@ -283,10 +283,10 @@ def run_forward_pass(
         Tuple[torch.Tensor, Dict[str, float]]: Loss and metrics.
     """
     # Extract batch components
-    images = batch["images"].to(device_id)
-    text = batch["text"].to(device_id)
-    text_attention_mask = batch["text_attention_mask"].to(device_id)
-    target_poses = batch["poses"].to(device_id)
+    images = batch["pixel_values"].to(device_id)
+    text = batch["input_ids"].to(device_id)
+    text_attention_mask = batch["attention_mask"].to(device_id)
+    target_poses = batch["pose_targets"].to(device_id)
     
     # Apply pose augmentation if enabled
     if pose_augmentation is not None and pose_augmentation.enabled:
