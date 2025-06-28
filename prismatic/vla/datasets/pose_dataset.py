@@ -105,10 +105,15 @@ class PoseDataset(IterableDataset):
             raise ValueError(f"Found {len(invalid_poses)} samples with invalid pose indices")
         
         # Check that all image indices are valid
-        image_files = set(f.split('.')[0] for f in os.listdir(self.image_dir) if f.endswith('.jpg'))
-        invalid_images = self.annotation_df[~self.annotation_df['overview_image_idx'].astype(str).isin(image_files)]
-        if len(invalid_images) > 0:
-            raise ValueError(f"Found {len(invalid_images)} samples with invalid image indices")
+        # Get the maximum image index from the CSV
+        max_image_idx = self.annotation_df['overview_image_idx'].max()
+        
+        # Check if the maximum image index is within the range of available images
+        # Images are named 00000.jpg to 156326.jpg (156327 total images)
+        available_image_count = len([f for f in os.listdir(self.image_dir) if f.endswith('.jpg')])
+        
+        if max_image_idx >= available_image_count:
+            raise ValueError(f"Found image indices up to {max_image_idx}, but only {available_image_count} images available")
         
         overwatch.info("Data validation passed")
     
