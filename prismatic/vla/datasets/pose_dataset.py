@@ -95,6 +95,10 @@ class PoseDataset(Dataset):
         
         # Set up image transforms (following original patterns)
         self._setup_transforms()
+        
+        # Add num_patches attribute for compatibility with training script
+        # This represents the number of image patches (typically 256 for 16x16 patches on 256x256 images)
+        self.num_patches = (self.image_size // 16) ** 2  # Assuming 16x16 patches
     
     def _validate_data(self):
         """Validate data consistency."""
