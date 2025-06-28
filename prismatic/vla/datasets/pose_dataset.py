@@ -2,7 +2,7 @@
 pose_dataset.py
 
 Dataset for pose prediction from image + language pairs.
-Follows original codebase patterns and inherits from IterableDataset.
+Follows original codebase patterns and inherits from Dataset.
 """
 
 import os
@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset
 from typing import Dict, List, Optional, Tuple, Any
 from transformers import AutoTokenizer
 
@@ -21,7 +21,7 @@ from prismatic.overwatch import initialize_overwatch
 overwatch = initialize_overwatch(__name__)
 
 
-class PoseDataset(IterableDataset):
+class PoseDataset(Dataset):
     """
     Dataset for pose prediction, following original codebase patterns.
     
@@ -181,52 +181,59 @@ class PoseDataset(IterableDataset):
         
         return pose
     
-    def __iter__(self):
-        """Iterate over dataset samples."""
-        # Shuffle data for training
-        if self.split == "train":
-            indices = np.random.permutation(len(self.annotation_df))
-        else:
-            indices = np.arange(len(self.annotation_df))
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        """Get a single sample from the dataset."""
+        sample = self.annotation_df.iloc[idx]
         
-        for idx in indices:
-            sample = self.annotation_df.iloc[idx]
+        try:
+            # Load image(s)
+            if self.num_images_in_input == 1:
+                image = self._load_image(sample['overview_image_idx'])
+                pixel_values = image.unsqueeze(0)  # Add batch dimension
+            elif self.num_images_in_input == 2:
+                # For 2 images, we could load the same image twice or implement different logic
+                # For now, just duplicate the image
+                image = self._load_image(sample['overview_image_idx'])
+                pixel_values = torch.stack([image, image])
+            else:
+                raise ValueError(f"Unsupported num_images_in_input: {self.num_images_in_input}")
             
-            try:
-                # Load image(s)
-                if self.num_images_in_input == 1:
-                    image = self._load_image(sample['overview_image_idx'])
-                    pixel_values = image.unsqueeze(0)  # Add batch dimension
-                elif self.num_images_in_input == 2:
-                    # For 2 images, we could load the same image twice or implement different logic
-                    # For now, just duplicate the image
-                    image = self._load_image(sample['overview_image_idx'])
-                    pixel_values = torch.stack([image, image])
-                else:
-                    raise ValueError(f"Unsupported num_images_in_input: {self.num_images_in_input}")
-                
-                # Tokenize text
-                text_encoding = self._tokenize_text(sample['language_description'])
-                
-                # Get pose target
-                pose_target = self._get_pose_target(sample['ee_pose_idx'])
-                
-                # Create sample
-                sample_dict = {
-                    "pixel_values": pixel_values,
-                    "input_ids": text_encoding["input_ids"],
-                    "attention_mask": text_encoding["attention_mask"],
-                    "pose_targets": pose_target,
-                    "language_description": sample['language_description'],
-                    "overview_image_idx": sample['overview_image_idx'],
-                    "ee_pose_idx": sample['ee_pose_idx']
-                }
-                
-                yield sample_dict
-                
-            except Exception as e:
-                overwatch.warning(f"Error loading sample {idx}: {e}")
-                continue
+            # Tokenize text
+            text_encoding = self._tokenize_text(sample['language_description'])
+            
+            # Get pose target
+            pose_target = self._get_pose_target(sample['ee_pose_idx'])
+            
+            # Create sample
+            sample_dict = {
+                "pixel_values": pixel_values,
+                "input_ids": text_encoding["input_ids"],
+                "attention_mask": text_encoding["attention_mask"],
+                "pose_targets": pose_target,
+                "language_description": sample['language_description'],
+                "overview_image_idx": sample['overview_image_idx'],
+                "ee_pose_idx": sample['ee_pose_idx']
+            }
+            
+            return sample_dict
+            
+        except Exception as e:
+            overwatch.warning(f"Error loading sample {idx}: {e}")
+            # Return a dummy sample in case of error
+            dummy_image = torch.zeros(3, self.image_size, self.image_size)
+            dummy_input_ids = torch.zeros(self.max_length, dtype=torch.long)
+            dummy_attention_mask = torch.zeros(self.max_length, dtype=torch.long)
+            dummy_pose = torch.zeros(self.poses.shape[1] if len(self.poses.shape) > 1 else 1)
+            
+            return {
+                "pixel_values": dummy_image.unsqueeze(0),
+                "input_ids": dummy_input_ids,
+                "attention_mask": dummy_attention_mask,
+                "pose_targets": dummy_pose,
+                "language_description": "",
+                "overview_image_idx": -1,
+                "ee_pose_idx": -1
+            }
     
     def __len__(self):
         """Return dataset length."""
