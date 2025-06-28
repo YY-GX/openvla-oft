@@ -594,8 +594,9 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         update_auto_map(cfg.vla_path)
         check_model_logic_mismatch(cfg.vla_path)
 
-    # Wait for model files to be synced
-    dist.barrier()
+    # Wait for model files to be synced (only in distributed mode)
+    if distributed_state.num_processes > 1:
+        dist.barrier()
 
     # Load processor and VLA
     if cfg.resume:
