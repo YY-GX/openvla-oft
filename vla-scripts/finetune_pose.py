@@ -629,7 +629,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         split="train",
         num_images_in_input=cfg.num_images_in_input,
         use_image_augmentation=cfg.image_aug,
-        tokenizer_name=vla.tokenizer.name_or_path,  # Use the actual tokenizer from VLA model
+        tokenizer_name=vla.llm_backbone.tokenizer.name_or_path,  # Use the tokenizer from llm_backbone
     )
     
     if cfg.use_val_set:
@@ -638,7 +638,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             split="val",
             num_images_in_input=cfg.num_images_in_input,
             use_image_augmentation=False,  # No augmentation for validation
-            tokenizer_name=vla.tokenizer.name_or_path,  # Use the actual tokenizer from VLA model
+            tokenizer_name=vla.llm_backbone.tokenizer.name_or_path,  # Use the tokenizer from llm_backbone
         )
     
     # Create data loaders
