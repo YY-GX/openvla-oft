@@ -30,10 +30,20 @@ def test_pose_finetune_config():
     print("=== Testing PoseFinetuneConfig ===")
     
     try:
-        # Add vla-scripts to path and import
+        # Import using exec to handle the hyphen in directory name
         vla_scripts_path = project_root / "vla-scripts"
         sys.path.insert(0, str(vla_scripts_path))
-        from finetune_pose import PoseFinetuneConfig
+        
+        # Use importlib to handle the module with hyphen
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "finetune_pose", 
+            vla_scripts_path / "finetune_pose.py"
+        )
+        finetune_pose_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(finetune_pose_module)
+        
+        PoseFinetuneConfig = finetune_pose_module.PoseFinetuneConfig
         
         # Test default configuration
         config = PoseFinetuneConfig()
@@ -100,10 +110,11 @@ def test_partial_loading_self_contained():
     print("=== Testing Partial Loading (Self-contained) ===")
     
     try:
-        from prismatic.models.load import load_pose_vla
+        # Import the module correctly
+        import prismatic.models.load as load_module
         
         # Mock the load_vla function to avoid loading actual models
-        with patch('prismatic.models.load.load_vla') as mock_load_vla:
+        with patch.object(load_module, 'load_vla') as mock_load_vla:
             # Create a mock VLA model
             mock_vla = Mock()
             mock_vla.vision_backbone = Mock()
@@ -115,7 +126,7 @@ def test_partial_loading_self_contained():
             mock_load_vla.return_value = mock_vla
             
             # Test loading with GMM pose head
-            pose_vlm = load_pose_vla(
+            pose_vlm = load_module.load_pose_vla(
                 vla_path="test_path",
                 pose_head_type="gmm",
                 gmm_num_components=3,
@@ -128,7 +139,7 @@ def test_partial_loading_self_contained():
             assert pose_vlm.use_proprio == False
             
             # Test loading with simple pose head
-            pose_vlm_simple = load_pose_vla(
+            pose_vlm_simple = load_module.load_pose_vla(
                 vla_path="test_path",
                 pose_head_type="simple",
                 pose_dim=6
@@ -151,7 +162,7 @@ def test_partial_loading_full():
     print("=== Testing Partial Loading (Full) ===")
     
     try:
-        from prismatic.models.load import load_pose_vla
+        import prismatic.models.load as load_module
         from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
         
         # Create temporary directory for mock checkpoint
@@ -163,7 +174,7 @@ def test_partial_loading_full():
             checkpoint_dir.mkdir()
             
             # Mock the load_vla function
-            with patch('prismatic.models.load.load_vla') as mock_load_vla:
+            with patch.object(load_module, 'load_vla') as mock_load_vla:
                 # Create a more realistic mock VLA model
                 mock_vla = Mock()
                 mock_vla.vision_backbone = Mock()
@@ -179,7 +190,7 @@ def test_partial_loading_full():
                 mock_load_vla.return_value = mock_vla
                 
                 # Test loading for training with checkpoint
-                pose_vlm = load_pose_vla(
+                pose_vlm = load_module.load_pose_vla(
                     vla_path=str(checkpoint_dir),
                     pose_head_type="gmm",
                     gmm_num_components=3,
@@ -226,13 +237,21 @@ def test_training_script_integration():
         # Test that training script can be imported
         vla_scripts_path = project_root / "vla-scripts"
         sys.path.insert(0, str(vla_scripts_path))
-        from finetune_pose import (
-            PoseFinetuneConfig, 
-            get_run_id, 
-            remove_ddp_in_checkpoint,
-            wrap_ddp,
-            count_parameters
+        
+        # Use importlib to handle the module with hyphen
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "finetune_pose", 
+            vla_scripts_path / "finetune_pose.py"
         )
+        finetune_pose_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(finetune_pose_module)
+        
+        PoseFinetuneConfig = finetune_pose_module.PoseFinetuneConfig
+        get_run_id = finetune_pose_module.get_run_id
+        remove_ddp_in_checkpoint = finetune_pose_module.remove_ddp_in_checkpoint
+        wrap_ddp = finetune_pose_module.wrap_ddp
+        count_parameters = finetune_pose_module.count_parameters
         
         # Test get_run_id function
         config = PoseFinetuneConfig(
@@ -286,7 +305,17 @@ def test_forward_pass_logic():
     try:
         vla_scripts_path = project_root / "vla-scripts"
         sys.path.insert(0, str(vla_scripts_path))
-        from finetune_pose import run_forward_pass
+        
+        # Use importlib to handle the module with hyphen
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "finetune_pose", 
+            vla_scripts_path / "finetune_pose.py"
+        )
+        finetune_pose_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(finetune_pose_module)
+        
+        run_forward_pass = finetune_pose_module.run_forward_pass
         
         # Create mock components
         mock_vla = Mock()
