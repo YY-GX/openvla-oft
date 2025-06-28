@@ -110,11 +110,18 @@ def test_partial_loading_self_contained():
     print("=== Testing Partial Loading (Self-contained) ===")
     
     try:
-        # Import the module correctly
-        import prismatic.models.load as load_module
+        # Import the module correctly - import the actual module, not the function
+        import sys
+        import importlib.util
+        
+        # Import the load module directly
+        load_module_path = project_root / "prismatic" / "models" / "load.py"
+        spec = importlib.util.spec_from_file_location("load_module", load_module_path)
+        load_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(load_module)
         
         # Mock the load_vla function to avoid loading actual models
-        with patch('prismatic.models.load.load_vla') as mock_load_vla:
+        with patch.object(load_module, 'load_vla') as mock_load_vla:
             # Create a mock VLA model
             mock_vla = Mock()
             mock_vla.vision_backbone = Mock()
