@@ -568,18 +568,58 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             config=vars(cfg),
         )
     
+    # Two options:
+    # (1) Base model is on Hugging Face Hub
+    #   - Then download it and record the path to the download directory
+    # (2) Base model is stored locally
+    #   - Then register model config in HF Auto Classes
+    # In both cases, we want to check whether any changes have been made to
+    # the `modeling_prismatic.py` file in this codebase; if so, we will copy
+    # the file to the downloaded or locally stored checkpoint directory so
+    # that the user's changes to the VLA class logic go into effect
+    if model_is_on_hf_hub(cfg.vla_path):
+        # Download model directly from Hugging Face Hub
+        vla_download_path = snapshot_download(repo_id=cfg.vla_path)
+        # Overwrite VLA path
+        cfg.vla_path = vla_download_path
+    else:
+        # Register OpenVLA model to HF Auto Classes (not needed if the model is on HF Hub)
+        AutoConfig.register("openvla", OpenVLAConfig)
+        AutoImageProcessor.register(OpenVLAConfig, PrismaticImageProcessor)
+        AutoProcessor.register(OpenVLAConfig, PrismaticProcessor)
+        AutoModelForVision2Seq.register(OpenVLAConfig, OpenVLAForActionPrediction)
+
+    # Update config.json and sync model files
+    if distributed_state.is_main_process:
+        update_auto_map(cfg.vla_path)
+        check_model_logic_mismatch(cfg.vla_path)
+
+    # Wait for model files to be synced
+    dist.barrier()
+
     # Load processor and VLA
     if cfg.resume:
         processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True, local_files_only=True)
     else:
         processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
 
-    vla = load_pose_vla(
-        vla_path=cfg.vla_path,
+    # Load base VLA model first
+    base_vla = AutoModelForVision2Seq.from_pretrained(
+        cfg.vla_path,
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,
+        trust_remote_code=True,
+    ).to(device_id)
+
+    # Create PoseVLM from base VLA
+    vla = PoseVLM(
+        model_id=f"pose_vlm_{cfg.pose_head_type}",
+        vision_backbone=base_vla.vision_backbone,
+        llm_backbone=base_vla.llm_backbone,
         pose_head_type=cfg.pose_head_type,
         pose_dim=cfg.pose_dim,
         gmm_num_components=cfg.gmm_num_components,
-        load_for_training=True,
+        enable_mixed_precision_training=False,  # We want full precision for training
     ).to(device_id)
     
     # Freeze VLA backbone (only train pose head)
