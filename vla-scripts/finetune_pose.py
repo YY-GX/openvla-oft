@@ -540,6 +540,21 @@ def run_validation(
     pose_head.train()
 
 
+# Create a wrapper to make OpenVLA's language_model compatible with LLMBackbone interface
+class OpenVLAWrapper:
+    def __init__(self, language_model):
+        self.llm = language_model
+        self.tokenizer = language_model.get_tokenizer() if hasattr(language_model, 'get_tokenizer') else None
+        self.config = language_model.config
+        self.embed_dim = language_model.config.hidden_size
+    
+    def forward(self, **kwargs):
+        return self.llm(**kwargs)
+    
+    def get_tokenizer(self):
+        return self.tokenizer
+
+
 @draccus.wrap()
 def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     """
@@ -612,11 +627,14 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         trust_remote_code=True,
     ).to(device_id)
 
+    # Create wrapper for language model
+    llm_backbone = OpenVLAWrapper(base_vla.language_model)
+
     # Create PoseVLM from base VLA
     vla = PoseVLM(
         model_id=f"pose_vlm_{cfg.pose_head_type}",
         vision_backbone=base_vla.vision_backbone,
-        llm_backbone=base_vla.language_model,
+        llm_backbone=llm_backbone,  # Use the wrapper
         pose_head_type=cfg.pose_head_type,
         pose_dim=cfg.pose_dim,
         gmm_num_components=cfg.gmm_num_components,
