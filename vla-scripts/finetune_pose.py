@@ -683,8 +683,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         batch_size=cfg.batch_size,
         shuffle=True,
         collate_fn=train_collator,
-        num_workers=4,
-        pin_memory=True,
+        num_workers=0,  # Reduce workers to avoid hanging
+        pin_memory=False,  # Disable pin_memory to avoid issues
     )
     
     if cfg.use_val_set:
@@ -699,8 +699,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             batch_size=cfg.batch_size,
             shuffle=False,
             collate_fn=val_collator,
-            num_workers=4,
-            pin_memory=True,
+            num_workers=0,  # Reduce workers to avoid hanging
+            pin_memory=False,  # Disable pin_memory to avoid issues
         )
     
     # Create pose augmentation
@@ -750,6 +750,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     vla.train()
     pose_head.train()
     
+    print("Starting training loop...")
+    
     metrics_deques = {
         "loss": deque(maxlen=100),
         "l1_error": deque(maxlen=100),
@@ -760,8 +762,14 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     log_step = cfg.resume_step if cfg.resume else 0
     optimizer.zero_grad()
     
+    print(f"Training for {cfg.max_steps} steps...")
+    
     for epoch in range(1000):  # Large number of epochs
-        for batch in train_dataloader:
+        print(f"Starting epoch {epoch}...")
+        for batch_idx, batch in enumerate(train_dataloader):
+            if batch_idx == 0:
+                print(f"Processing first batch of epoch {epoch}...")
+            
             if log_step >= cfg.max_steps:
                 break
             
