@@ -267,16 +267,16 @@ def run_forward_pass(
     pose_augmentation=None,
 ) -> Tuple[torch.Tensor, Dict[str, float]]:
     """
-    Runs a forward pass through the PoseVLM model.
+    Run a forward pass through the model.
 
     Args:
-        vla: OpenVLA model.
-        pose_head: Pose prediction head.
+        vla: PoseVLM model.
+        pose_head: Pose prediction head (not used, included for compatibility).
         batch: Input batch.
         device_id: Device ID.
         cfg: Training configuration.
-        use_film: Whether to use FiLM.
-        num_patches: Number of image patches.
+        use_film: Whether to use FiLM (not used, included for compatibility).
+        num_patches: Number of image patches (not used, included for compatibility).
         pose_augmentation: Pose augmentation object.
 
     Returns:
@@ -292,49 +292,30 @@ def run_forward_pass(
     if pose_augmentation is not None and pose_augmentation.enabled:
         target_poses = pose_augmentation(target_poses)
     
-    # Forward pass through VLA
-    vla_outputs = vla(
-        input_ids=text,
-        attention_mask=text_attention_mask,
-        pixel_values=images,
-        return_dict=True,
+    # Compute loss using PoseVLM's built-in method
+    loss = vla.compute_loss(
+        images=images,
+        text=text,
+        text_attention_mask=text_attention_mask,
+        target_poses=target_poses,
     )
     
-    # Extract hidden states for pose tokens
-    hidden_states = vla_outputs.hidden_states[-1]  # Use last layer
-    batch_size = hidden_states.shape[0]
-    
-    # Extract pose token hidden states (last num_pose_tokens positions)
-    pose_start_idx = hidden_states.shape[1] - cfg.num_pose_tokens
-    pose_end_idx = hidden_states.shape[1]
-    pose_hidden_states = hidden_states[:, pose_start_idx:pose_end_idx]  # (batch_size, num_pose_tokens, hidden_dim)
-    
-    # Reshape to match pose head input format
-    pose_hidden_states = pose_hidden_states.transpose(1, 2)  # (batch_size, hidden_dim, num_pose_tokens)
-    
-    # Pad or truncate to pose_dim
-    if pose_hidden_states.shape[2] > cfg.pose_dim:
-        pose_hidden_states = pose_hidden_states[:, :, :cfg.pose_dim]
-    elif pose_hidden_states.shape[2] < cfg.pose_dim:
-        # Pad with zeros
-        padding = torch.zeros(
-            batch_size, pose_hidden_states.shape[1], cfg.pose_dim - pose_hidden_states.shape[2],
-            device=pose_hidden_states.device, dtype=pose_hidden_states.dtype
+    # Compute additional metrics
+    with torch.no_grad():
+        # Get predictions for metrics
+        predictions = vla.predict_pose(
+            images=images,
+            text=text,
+            text_attention_mask=text_attention_mask,
+            num_samples=1,
         )
-        pose_hidden_states = torch.cat([pose_hidden_states, padding], dim=2)
-    
-    # Forward pass through pose head
-    if cfg.pose_head_type == "gmm":
-        means, covariances, weights = pose_head(pose_hidden_states)
-        loss = pose_head.compute_loss(pose_hidden_states, target_poses)
         
-        # Compute additional metrics
-        with torch.no_grad():
-            # Sample poses for evaluation
-            sampled_poses = pose_head.sample_poses(pose_hidden_states, num_samples=1).squeeze(1)
+        if cfg.pose_head_type == "gmm":
+            sampled_poses = predictions['sampled_poses'].squeeze(1)
             l1_error = torch.mean(torch.abs(sampled_poses - target_poses))
             
             # Compute component weights entropy (diversity measure)
+            weights = predictions['weights']
             entropy = -torch.sum(weights * torch.log(weights + 1e-8), dim=-1).mean()
             
             metrics = {
@@ -342,12 +323,8 @@ def run_forward_pass(
                 "l1_error": l1_error.item(),
                 "entropy": entropy.item(),
             }
-    else:
-        predicted_poses = pose_head(pose_hidden_states)
-        loss = pose_head.compute_loss(pose_hidden_states, target_poses)
-        
-        # Compute additional metrics
-        with torch.no_grad():
+        else:
+            predicted_poses = predictions['predicted_poses']
             l1_error = torch.mean(torch.abs(predicted_poses - target_poses))
             metrics = {
                 "loss": loss.item(),
