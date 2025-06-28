@@ -282,33 +282,16 @@ def load_pose_vla(
     for param in base_vla.parameters():
         param.requires_grad = False
     
-    # Initialize pose head
-    hidden_dim = base_vla.config.hidden_size
-    if pose_head_type == "gmm":
-        pose_head = GMMPoseHead(
-            input_dim=hidden_dim,
-            hidden_dim=hidden_dim,
-            pose_dim=pose_dim,
-            num_components=gmm_num_components,
-        )
-    else:
-        pose_head = SimplePoseHead(
-            input_dim=hidden_dim,
-            hidden_dim=hidden_dim,
-            pose_dim=pose_dim,
-        )
-    
     # Create PoseVLM
     overwatch.info(f"Creating PoseVLM with {pose_head_type} pose head")
     pose_vlm = PoseVLM(
+        model_id=f"pose_vlm_{pose_head_type}",
         vision_backbone=vision_backbone,
         llm_backbone=llm_backbone,
-        tokenizer=tokenizer,
-        pose_head=pose_head,
         pose_head_type=pose_head_type,
-        use_film=False,  # Default to False for pose prediction
-        num_images_in_input=1,  # Default to 1 image
-        use_proprio=False,  # Disable proprioception for pose prediction
+        pose_dim=pose_dim,
+        gmm_num_components=gmm_num_components,
+        enable_mixed_precision_training=not load_for_training,
     )
     
     # Load pose head weights if available (for resuming training)
