@@ -566,28 +566,19 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             config=vars(cfg),
         )
     
-    # Load processor
-    if model_is_on_hf_hub(cfg.vla_path):
-        processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
-    else:
+    # Load processor and VLA
+    if cfg.resume:
         processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True, local_files_only=True)
-    
-    # Load VLA model
-    if model_is_on_hf_hub(cfg.vla_path):
-        vla = AutoModelForVision2Seq.from_pretrained(
-            cfg.vla_path,
-            trust_remote_code=True,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-        )
     else:
-        vla = AutoModelForVision2Seq.from_pretrained(
-            cfg.vla_path,
-            trust_remote_code=True,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            local_files_only=True,
-        )
+        processor = AutoProcessor.from_pretrained(cfg.vla_path, trust_remote_code=True)
+
+    vla = load_pose_vla(
+        vla_path=cfg.vla_path,
+        pose_head_type=cfg.pose_head_type,
+        pose_dim=cfg.pose_dim,
+        gmm_num_components=cfg.gmm_num_components,
+        load_for_training=True,
+    ).to(device_id)
     
     # Freeze VLA backbone (only train pose head)
     for param in vla.parameters():
@@ -629,7 +620,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         split="train",
         num_images_in_input=cfg.num_images_in_input,
         use_image_augmentation=cfg.image_aug,
-        tokenizer_name=vla.llm_backbone.tokenizer.name_or_path,  # Use the tokenizer from llm_backbone
+        tokenizer_name=processor.tokenizer.name_or_path,  # Use the tokenizer from processor like original code
     )
     
     if cfg.use_val_set:
@@ -638,7 +629,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             split="val",
             num_images_in_input=cfg.num_images_in_input,
             use_image_augmentation=False,  # No augmentation for validation
-            tokenizer_name=vla.llm_backbone.tokenizer.name_or_path,  # Use the tokenizer from llm_backbone
+            tokenizer_name=processor.tokenizer.name_or_path,  # Use the tokenizer from processor like original code
         )
     
     # Create data loaders
