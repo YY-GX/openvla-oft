@@ -629,6 +629,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         split="train",
         num_images_in_input=cfg.num_images_in_input,
         use_image_augmentation=cfg.image_aug,
+        tokenizer_name=vla.config.text_config._name_or_path,  # Use the same tokenizer as VLA
     )
     
     if cfg.use_val_set:
@@ -637,6 +638,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             split="val",
             num_images_in_input=cfg.num_images_in_input,
             use_image_augmentation=False,  # No augmentation for validation
+            tokenizer_name=vla.config.text_config._name_or_path,  # Use the same tokenizer as VLA
         )
     
     # Create data loaders

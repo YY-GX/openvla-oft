@@ -38,7 +38,7 @@ class PoseDataset(IterableDataset):
         image_size: int = 224,
         use_image_augmentation: bool = False,
         pose_augmentation: Optional[Any] = None,
-        tokenizer_name: str = "meta-llama/Llama-2-7b-hf",
+        tokenizer_name: str = "microsoft/DialoGPT-medium",
         **kwargs
     ):
         """
