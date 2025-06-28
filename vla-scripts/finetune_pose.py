@@ -542,9 +542,9 @@ def run_validation(
 
 # Create a wrapper to make OpenVLA's language_model compatible with LLMBackbone interface
 class OpenVLAWrapper:
-    def __init__(self, language_model):
+    def __init__(self, language_model, processor):
         self.llm = language_model
-        self.tokenizer = language_model.get_tokenizer() if hasattr(language_model, 'get_tokenizer') else None
+        self.tokenizer = processor.tokenizer  # Get tokenizer from processor
         self.config = language_model.config
         self.embed_dim = language_model.config.hidden_size
     
@@ -628,7 +628,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     ).to(device_id)
 
     # Create wrapper for language model
-    llm_backbone = OpenVLAWrapper(base_vla.language_model)
+    llm_backbone = OpenVLAWrapper(base_vla.language_model, processor)
 
     # Create PoseVLM from base VLA
     vla = PoseVLM(
