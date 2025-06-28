@@ -193,7 +193,7 @@ class PoseDataset(Dataset):
             # Load image(s)
             if self.num_images_in_input == 1:
                 image = self._load_image(sample['overview_image_idx'])
-                pixel_values = image.unsqueeze(0)  # Add batch dimension
+                pixel_values = image  # Don't add extra batch dimension
             elif self.num_images_in_input == 2:
                 # For 2 images, we could load the same image twice or implement different logic
                 # For now, just duplicate the image
