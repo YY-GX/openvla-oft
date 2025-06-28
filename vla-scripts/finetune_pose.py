@@ -625,20 +625,18 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     
     # Create datasets
     train_dataset = create_pose_dataset(
-        data_root_dir=cfg.data_root_dir,
+        data_root=str(cfg.data_root_dir),
         split="train",
-        processor=processor,
         num_images_in_input=cfg.num_images_in_input,
-        image_aug=cfg.image_aug,
+        use_image_augmentation=cfg.image_aug,
     )
     
     if cfg.use_val_set:
         val_dataset = create_pose_dataset(
-            data_root_dir=cfg.data_root_dir,
+            data_root=str(cfg.data_root_dir),
             split="val",
-            processor=processor,
             num_images_in_input=cfg.num_images_in_input,
-            image_aug=False,  # No augmentation for validation
+            use_image_augmentation=False,  # No augmentation for validation
         )
     
     # Create data loaders
