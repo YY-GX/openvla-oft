@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Union
 
+import torch
 from huggingface_hub import HfFileSystem, hf_hub_download
 
 from prismatic.conf import ModelConfig
@@ -17,6 +18,8 @@ from prismatic.models.materialize import get_llm_backbone_and_tokenizer, get_vis
 from prismatic.models.registry import GLOBAL_REGISTRY, MODEL_REGISTRY
 from prismatic.models.vlas import OpenVLA
 from prismatic.models.vlms import PrismaticVLM
+from prismatic.models.vlms.pose_vlm import PoseVLM
+from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
 from prismatic.overwatch import initialize_overwatch
 from prismatic.vla.action_tokenizer import ActionTokenizer
 
@@ -224,3 +227,97 @@ def load_vla(
     )
 
     return vla
+
+
+# === Load Pretrained VLA Model for Pose Prediction ===
+def load_pose_vla(
+    vla_path: Union[str, Path],
+    pose_head_type: str = "gmm",
+    gmm_num_components: int = 3,
+    pose_dim: int = 6,
+    hf_token: Optional[str] = None,
+    cache_dir: Optional[Union[str, Path]] = None,
+    load_for_training: bool = False,
+    step_to_load: Optional[int] = None,
+    model_type: str = "pretrained",
+) -> PoseVLM:
+    """
+    Loads a pretrained OpenVLA and initializes it with a pose prediction head for pose prediction.
+    
+    This function loads the vision and language components from a pretrained VLA model,
+    freezes them, and adds a trainable pose prediction head on top.
+    
+    Args:
+        vla_path: Path to pretrained VLA model or model ID
+        pose_head_type: Type of pose head ("gmm" or "simple")
+        gmm_num_components: Number of GMM components (only used if pose_head_type="gmm")
+        pose_dim: Dimension of pose (3D position + 3D orientation)
+        hf_token: HuggingFace token for private models
+        cache_dir: Directory to cache downloaded models
+        load_for_training: Whether to load for training (affects parameter freezing)
+        step_to_load: Specific checkpoint step to load
+        model_type: Type of model on HF Hub
+        
+    Returns:
+        PoseVLM: Model with pretrained VLA backbone and pose prediction head
+    """
+    
+    # Load the base VLA model
+    overwatch.info(f"Loading base VLA model from {vla_path}")
+    base_vla = load_vla(
+        model_id_or_path=vla_path,
+        hf_token=hf_token,
+        cache_dir=cache_dir,
+        load_for_training=False,  # Always freeze base VLA
+        step_to_load=step_to_load,
+        model_type=model_type,
+    )
+    
+    # Extract components from base VLA
+    vision_backbone = base_vla.vision_backbone
+    llm_backbone = base_vla.llm_backbone
+    tokenizer = base_vla.tokenizer
+    
+    # Freeze the base VLA components
+    for param in base_vla.parameters():
+        param.requires_grad = False
+    
+    # Initialize pose head
+    hidden_dim = base_vla.config.hidden_size
+    if pose_head_type == "gmm":
+        pose_head = GMMPoseHead(
+            input_dim=hidden_dim,
+            hidden_dim=hidden_dim,
+            pose_dim=pose_dim,
+            num_components=gmm_num_components,
+        )
+    else:
+        pose_head = SimplePoseHead(
+            input_dim=hidden_dim,
+            hidden_dim=hidden_dim,
+            pose_dim=pose_dim,
+        )
+    
+    # Create PoseVLM
+    overwatch.info(f"Creating PoseVLM with {pose_head_type} pose head")
+    pose_vlm = PoseVLM(
+        vision_backbone=vision_backbone,
+        llm_backbone=llm_backbone,
+        tokenizer=tokenizer,
+        pose_head=pose_head,
+        pose_head_type=pose_head_type,
+        use_film=False,  # Default to False for pose prediction
+        num_images_in_input=1,  # Default to 1 image
+        use_proprio=False,  # Disable proprioception for pose prediction
+    )
+    
+    # Load pose head weights if available (for resuming training)
+    if load_for_training and os.path.isdir(vla_path):
+        # Look for pose head checkpoint in the same directory
+        pose_head_checkpoint_path = Path(vla_path) / f"pose_head--{step_to_load if step_to_load else 'latest'}_checkpoint.pt"
+        if pose_head_checkpoint_path.exists():
+            overwatch.info(f"Loading pose head checkpoint from {pose_head_checkpoint_path}")
+            checkpoint = torch.load(pose_head_checkpoint_path, map_location="cpu")
+            pose_vlm.pose_head.load_state_dict(checkpoint["model"])
+    
+    return pose_vlm
