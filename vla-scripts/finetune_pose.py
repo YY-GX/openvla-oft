@@ -752,6 +752,16 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     
     print("Starting training loop...")
     
+    # Test loading one batch first
+    print("Testing batch loading...")
+    try:
+        test_batch = next(iter(train_dataloader))
+        print(f"Successfully loaded test batch with keys: {list(test_batch.keys())}")
+        print(f"Batch shapes: pixel_values={test_batch['pixel_values'].shape}, input_ids={test_batch['input_ids'].shape}")
+    except Exception as e:
+        print(f"Error loading test batch: {e}")
+        return
+    
     metrics_deques = {
         "loss": deque(maxlen=100),
         "l1_error": deque(maxlen=100),
