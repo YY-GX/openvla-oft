@@ -73,6 +73,7 @@ class PoseFinetuneConfig:
     use_film: bool = False                           # If True, uses FiLM to infuse language inputs into visual features
     num_images_in_input: int = 1                     # Number of images in the VLA input (default: 1)
     use_proprio: bool = False                        # If True, includes robot proprioceptive state in input (disabled for pose)
+    max_length: int = 512                            # Maximum sequence length for text tokens
 
     # Training configuration
     batch_size: int = 8                              # Batch size per device (total batch size = batch_size * num GPUs)
@@ -695,8 +696,9 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     
     # Create data loaders
     train_collator = PaddedCollatorForPosePrediction(
-        processor=processor,
-        num_images_in_input=cfg.num_images_in_input,
+        model_max_length=cfg.max_length,
+        pad_token_id=processor.tokenizer.pad_token_id,
+        padding_side=processor.tokenizer.padding_side,
     )
     
     train_dataloader = DataLoader(
@@ -710,8 +712,9 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     
     if cfg.use_val_set:
         val_collator = PaddedCollatorForPosePrediction(
-            processor=processor,
-            num_images_in_input=cfg.num_images_in_input,
+            model_max_length=cfg.max_length,
+            pad_token_id=processor.tokenizer.pad_token_id,
+            padding_side=processor.tokenizer.padding_side,
         )
         
         val_dataloader = DataLoader(
