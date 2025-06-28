@@ -616,7 +616,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     vla = PoseVLM(
         model_id=f"pose_vlm_{cfg.pose_head_type}",
         vision_backbone=base_vla.vision_backbone,
-        llm_backbone=base_vla.llm_backbone,
+        llm_backbone=base_vla.language_model,
         pose_head_type=cfg.pose_head_type,
         pose_dim=cfg.pose_dim,
         gmm_num_components=cfg.gmm_num_components,
