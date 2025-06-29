@@ -284,6 +284,8 @@ def run_forward_pass(
     """
     # Extract batch components
     images = batch["pixel_values"].to(device_id)
+    if images.dtype != torch.bfloat16:
+        images = images.to(torch.bfloat16)
     text = batch["input_ids"].to(device_id)
     text_attention_mask = batch["attention_mask"].to(device_id)
     target_poses = batch["pose_targets"].to(device_id)
