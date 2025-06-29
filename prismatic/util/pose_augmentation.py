@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from typing import Optional, Tuple, Union
 import random
+from prismatic.util import ensure_bfloat16
 
 
 class PoseAugmentation:
@@ -97,6 +98,9 @@ class PoseAugmentation:
         
         if is_torch:
             result = torch.tensor(result, device=device, dtype=dtype)
+            # Ensure bfloat16 dtype is preserved
+            if dtype == torch.bfloat16:
+                result = ensure_bfloat16(result)
         
         return result
     

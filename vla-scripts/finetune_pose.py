@@ -49,6 +49,7 @@ from prismatic.models.projectors import (
 from prismatic.util.data_utils import PaddedCollatorForPosePrediction
 from prismatic.vla.datasets.pose_dataset import create_pose_dataset
 from prismatic.util.pose_augmentation import create_pose_augmentation
+from prismatic.util import ensure_bfloat16, ensure_bfloat16_batch
 
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -282,10 +283,8 @@ def run_forward_pass(
     Returns:
         Tuple[torch.Tensor, Dict[str, float]]: Loss and metrics.
     """
-    # Extract batch components
-    images = batch["pixel_values"].to(device_id)
-    if images.dtype != torch.bfloat16:
-        images = images.to(torch.bfloat16)
+    # Extract batch components and ensure bfloat16 dtype
+    images = ensure_bfloat16(batch["pixel_values"].to(device_id))
     text = batch["input_ids"].to(device_id)
     text_attention_mask = batch["attention_mask"].to(device_id)
     target_poses = batch["pose_targets"].to(device_id)

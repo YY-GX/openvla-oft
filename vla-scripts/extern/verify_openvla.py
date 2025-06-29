@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from PIL import Image
 from transformers import AutoModelForVision2Seq, AutoProcessor
+from prismatic.util import ensure_bfloat16
 
 # === Verification Arguments
 MODEL_PATH = "openvla/openvla-7b"
@@ -75,6 +76,7 @@ def verify_openvla() -> None:
 
         # === BFLOAT16 MODE ===
         inputs = processor(prompt, image).to(device, dtype=torch.bfloat16)
+        inputs = {k: ensure_bfloat16(v) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
 
         # === 8-BIT/4-BIT QUANTIZATION MODE ===
         # inputs = processor(prompt, image).to(device, dtype=torch.float16)

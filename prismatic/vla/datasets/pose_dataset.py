@@ -155,8 +155,8 @@ class PoseDataset(Dataset):
         else:
             image = self.transform(image)
         
-        # Don't convert dtype here - let the model handle it
-        return image
+        # Ensure image is in bfloat16 to prevent dtype mismatches
+        return image.to(torch.bfloat16)
     
     def _tokenize_text(self, text: str) -> Dict[str, torch.Tensor]:
         """Tokenize text following original patterns."""

@@ -33,7 +33,7 @@ class PaddedCollatorForLanguageModeling:
     pad_token_id: int
     default_image_resolution: Tuple[int, int, int]
     padding_side: str = "right"
-    pixel_values_dtype: torch.dtype = torch.float32
+    pixel_values_dtype: torch.dtype = torch.bfloat16
 
     def __post_init__(self) -> None:
         self.dummy_pixel_values = torch.zeros(self.default_image_resolution, dtype=self.pixel_values_dtype)
@@ -97,7 +97,7 @@ class PaddedCollatorForActionPrediction:
     model_max_length: int
     pad_token_id: int
     padding_side: str = "right"
-    pixel_values_dtype: torch.dtype = torch.float32
+    pixel_values_dtype: torch.dtype = torch.bfloat16
 
     def __call__(self, instances: Sequence[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))

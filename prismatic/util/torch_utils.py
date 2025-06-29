@@ -93,3 +93,39 @@ def check_bloat16_supported() -> bool:
 
     except Exception:
         return False
+
+
+def ensure_bfloat16(tensor: torch.Tensor) -> torch.Tensor:
+    """
+    Ensure a tensor is in bfloat16 dtype to prevent dtype mismatch errors.
+    
+    Args:
+        tensor: Input tensor
+        
+    Returns:
+        Tensor in bfloat16 dtype
+    """
+    if tensor.dtype != torch.bfloat16:
+        return tensor.to(torch.bfloat16)
+    return tensor
+
+
+def ensure_bfloat16_batch(batch: dict) -> dict:
+    """
+    Ensure all tensors in a batch are in bfloat16 dtype.
+    
+    Args:
+        batch: Dictionary containing tensors
+        
+    Returns:
+        Batch with all tensors in bfloat16 dtype
+    """
+    processed_batch = {}
+    for key, value in batch.items():
+        if isinstance(value, torch.Tensor):
+            processed_batch[key] = ensure_bfloat16(value)
+        elif isinstance(value, dict):
+            processed_batch[key] = ensure_bfloat16_batch(value)
+        else:
+            processed_batch[key] = value
+    return processed_batch

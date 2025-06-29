@@ -32,6 +32,7 @@ from prismatic.vla.constants import (
     ACTION_PROPRIO_NORMALIZATION_TYPE,
 )
 from prismatic.vla.datasets.rlds.utils.data_utils import NormalizationType
+from prismatic.util import ensure_bfloat16, ensure_bfloat16_batch
 
 # Initialize important constants
 DATE = time.strftime("%Y_%m_%d")
@@ -449,7 +450,7 @@ def get_noisy_action_projector(cfg: Any, llm_dim: int) -> NoisyActionProjector:
     noisy_action_projector = NoisyActionProjector(
         llm_dim=llm_dim,
     ).to(DEVICE)
-    noisy_action_projector = noisy_action_projector.to(torch.bfloat16).to(DEVICE)
+    noisy_action_projector = ensure_bfloat16(noisy_action_projector).to(DEVICE)
     noisy_action_projector.eval()
 
     # Find and load checkpoint
@@ -487,6 +488,7 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
         raise ValueError("Either use_l1_regression or use_diffusion must be True")
 
     action_head = action_head.to(torch.bfloat16).to(DEVICE)
+    action_head = ensure_bfloat16(action_head).to(DEVICE)
     action_head.eval()
 
     # Find and load checkpoint (may be on Hugging Face Hub or stored locally)

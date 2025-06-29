@@ -60,6 +60,7 @@ from prismatic.vla.constants import (
 )
 from prismatic.vla.datasets import RLDSBatchTransform, RLDSDataset
 from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
+from prismatic.util import ensure_bfloat16, ensure_bfloat16_batch
 
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -313,7 +314,7 @@ def run_forward_pass(
     metrics = {}
 
     # Get ground-truth action labels
-    ground_truth_actions = batch["actions"].to(device_id).to(torch.bfloat16)
+    ground_truth_actions = ensure_bfloat16(batch["actions"].to(device_id))
 
     # [Only for diffusion] Sample noisy actions used as input for noise predictor network
     if use_diffusion:
@@ -331,7 +332,7 @@ def run_forward_pass(
         output: CausalLMOutputWithPast = vla(
             input_ids=batch["input_ids"].to(device_id),
             attention_mask=batch["attention_mask"].to(device_id),
-            pixel_values=batch["pixel_values"].to(torch.bfloat16).to(device_id),
+            pixel_values=ensure_bfloat16(batch["pixel_values"].to(device_id)),
             labels=batch["labels"],
             output_hidden_states=True,
             proprio=batch["proprio"] if use_proprio else None,
@@ -380,11 +381,10 @@ def run_forward_pass(
         text_hidden_states = last_hidden_states[:, num_patches:-1]
         # Get hidden states for action portion of response
         batch_size = batch["input_ids"].shape[0]
-        actions_hidden_states = (
-            text_hidden_states[current_action_mask | next_actions_mask]
-            .reshape(batch_size, NUM_ACTIONS_CHUNK * ACTION_DIM, -1)
-            .to(torch.bfloat16)
+        actions_hidden_states = text_hidden_states[current_action_mask | next_actions_mask].reshape(
+            batch_size, NUM_ACTIONS_CHUNK * ACTION_DIM, -1
         )  # (B, act_chunk_len, D)
+        actions_hidden_states = ensure_bfloat16(actions_hidden_states)
 
         if use_l1_regression:
             # Predict action
@@ -505,7 +505,7 @@ def run_diffusion_sampling(
             output = vla(
                 input_ids=batch["input_ids"].to(device_id),
                 attention_mask=batch["attention_mask"].to(device_id),
-                pixel_values=batch["pixel_values"].to(torch.bfloat16).to(device_id),
+                pixel_values=ensure_bfloat16(batch["pixel_values"].to(device_id)),
                 labels=batch["labels"],
                 output_hidden_states=True,
                 proprio=batch["proprio"] if use_proprio else None,
