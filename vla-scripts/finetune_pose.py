@@ -606,6 +606,18 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         trust_remote_code=True,
     ).to(device_id)
 
+    # === LoRA setup (only on base VLA, not custom PoseVLM) ===
+    lora_config = LoraConfig(
+        r=cfg.lora_rank,
+        lora_alpha=min(cfg.lora_rank, 16),
+        lora_dropout=cfg.lora_dropout,
+        target_modules="all-linear",
+        init_lora_weights="gaussian",
+    )
+    base_vla = get_peft_model(base_vla, lora_config)
+    print("[LoRA] Trainable parameters in base VLA (should be only LoRA adapters):")
+    base_vla.print_trainable_parameters()
+
     # Create wrapper for language model
     llm_backbone = OpenVLAWrapper(base_vla.language_model, processor)
 
@@ -619,17 +631,10 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         gmm_num_components=cfg.gmm_num_components,
         enable_mixed_precision_training=False,  # We want full precision for training
     ).to(device_id)
-    
-    # === LoRA setup ===
-    lora_config = LoraConfig(
-        r=cfg.lora_rank,
-        lora_alpha=min(cfg.lora_rank, 16),
-        lora_dropout=cfg.lora_dropout,
-        target_modules="all-linear",
-        init_lora_weights="gaussian",
-    )
-    vla = get_peft_model(vla, lora_config)
-    vla.print_trainable_parameters()
+
+    # Print trainable parameter count for pose head
+    pose_head_params = sum(p.numel() for p in vla.pose_head.parameters() if p.requires_grad)
+    print(f"[Pose Head] Trainable parameters: {pose_head_params:,}")
     
     # Freeze VLA backbone (only train pose head)
     for param in vla.parameters():
