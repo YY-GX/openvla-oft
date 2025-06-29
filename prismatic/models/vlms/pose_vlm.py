@@ -250,37 +250,17 @@ class PoseVLM(PrismaticVLM):
     ) -> torch.Tensor:
         """
         Extract hidden states corresponding to pose tokens.
-        
         Args:
             hidden_states: Hidden states from LLM (batch_size, seq_len, hidden_dim)
             attention_mask: Attention mask (batch_size, seq_len)
-        
         Returns:
-            Pose token hidden states (batch_size, pose_dim, hidden_dim)
+            Pose token hidden states (batch_size, num_pose_tokens, hidden_dim)
         """
-        batch_size = hidden_states.shape[0]
-        
         # Find pose token positions (last num_pose_tokens positions)
         pose_start_idx = hidden_states.shape[1] - self.num_pose_tokens
         pose_end_idx = hidden_states.shape[1]
-        
         # Extract pose token hidden states
-        pose_hidden_states = hidden_states[:, pose_start_idx:pose_end_idx]  # (batch_size, num_pose_tokens, hidden_dim)
-        
-        # Reshape to match pose head input format
-        pose_hidden_states = pose_hidden_states.transpose(1, 2)  # (batch_size, hidden_dim, num_pose_tokens)
-        
-        # Pad or truncate to pose_dim
-        if pose_hidden_states.shape[2] > self.pose_dim:
-            pose_hidden_states = pose_hidden_states[:, :, :self.pose_dim]
-        elif pose_hidden_states.shape[2] < self.pose_dim:
-            # Pad with zeros
-            padding = torch.zeros(
-                batch_size, pose_hidden_states.shape[1], self.pose_dim - pose_hidden_states.shape[2],
-                device=pose_hidden_states.device, dtype=pose_hidden_states.dtype
-            )
-            pose_hidden_states = torch.cat([pose_hidden_states, padding], dim=2)
-        
+        pose_hidden_states = hidden_states[:, pose_start_idx:pose_end_idx, :]
         return pose_hidden_states
     
     def predict_pose(

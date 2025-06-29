@@ -18,11 +18,8 @@ from prismatic.models.action_heads import MLPResNet
 class GMMPoseHead(nn.Module):
     """
     Gaussian Mixture Model pose head for predicting multi-modal pose distributions.
-    
-    Follows original L1RegressionActionHead patterns but outputs GMM parameters
-    instead of single pose predictions.
+    Tokenwise: applies a shared MLP to each pose token's hidden state.
     """
-    
     def __init__(
         self,
         input_dim: int = 4096,
@@ -56,74 +53,36 @@ class GMMPoseHead(nn.Module):
         # For each component: means (pose_dim) + diagonal covariances (pose_dim) + weight (1)
         self.gmm_output_dim = num_components * (pose_dim + pose_dim + 1)
         
-        # MLP to predict GMM parameters (following L1RegressionActionHead pattern)
-        self.model = MLPResNet(
+        # Shared MLP for all pose tokens
+        self.mlp = MLPResNet(
             num_blocks=2,
-            input_dim=input_dim * pose_dim,  # Same as original pattern
+            input_dim=input_dim,
             hidden_dim=hidden_dim,
             output_dim=self.gmm_output_dim
         )
     
     def forward(self, pose_hidden_states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Forward pass to predict GMM parameters.
-        
         Args:
-            pose_hidden_states: Hidden states from LLM for pose tokens
-                               Shape: (batch_size, pose_dim, hidden_dim)
-        
+            pose_hidden_states: (batch_size, num_pose_tokens, hidden_dim)
         Returns:
-            Tuple of (means, covariances, weights):
-                - means: (batch_size, num_components, pose_dim)
-                - covariances: (batch_size, num_components, pose_dim, pose_dim)
-                - weights: (batch_size, num_components)
+            means: (batch_size, num_pose_tokens, num_components, pose_dim)
+            covariances: (batch_size, num_pose_tokens, num_components, pose_dim, pose_dim)
+            weights: (batch_size, num_pose_tokens, num_components)
         """
-        batch_size = pose_hidden_states.shape[0]
-        
-        # Reshape to match original pattern (following L1RegressionActionHead)
-        rearranged_states = pose_hidden_states.reshape(batch_size, -1)
-        
-        # Predict GMM parameters
-        gmm_params = self.model(rearranged_states)  # (batch_size, gmm_output_dim)
-        
-        # Split parameters into means, covariances, and weights
-        means, covariances, weights = self._split_gmm_params(gmm_params, batch_size)
-        
-        return means, covariances, weights
-    
-    def _split_gmm_params(self, gmm_params: torch.Tensor, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Split GMM parameters into means, covariances, and weights.
-        
-        Args:
-            gmm_params: Raw GMM parameters from MLP
-            batch_size: Batch size
-        
-        Returns:
-            Tuple of (means, covariances, weights)
-        """
-        # Calculate split indices
-        means_dim = self.num_components * self.pose_dim
-        covs_dim = self.num_components * self.pose_dim
-        
-        # Split parameters
-        means_flat = gmm_params[:, :means_dim]  # (batch_size, num_components * pose_dim)
-        covs_flat = gmm_params[:, means_dim:means_dim + covs_dim]  # (batch_size, num_components * pose_dim)
-        weights_flat = gmm_params[:, means_dim + covs_dim:]  # (batch_size, num_components)
-        
-        # Reshape means
-        means = means_flat.reshape(batch_size, self.num_components, self.pose_dim)
-        
-        # Reshape and process covariances (ensure positive definite)
-        covs_flat = covs_flat.reshape(batch_size, self.num_components, self.pose_dim)
-        # Apply softplus and clamp for numerical stability
-        covs_flat = torch.clamp(F.softplus(covs_flat), min=self.min_std, max=self.max_std)
-        # Create diagonal covariance matrices
-        covariances = torch.diag_embed(covs_flat)  # (batch_size, num_components, pose_dim, pose_dim)
-        
-        # Process weights (ensure they sum to 1)
-        weights = F.softmax(weights_flat, dim=-1)  # (batch_size, num_components)
-        
+        batch_size, num_pose_tokens, hidden_dim = pose_hidden_states.shape
+        # Apply shared MLP to each token
+        gmm_params = self.mlp(pose_hidden_states)  # (batch, num_pose_tokens, gmm_output_dim)
+        # Split GMM params for each token
+        gmm_params = gmm_params.view(batch_size, num_pose_tokens, self.num_components, -1)
+        means = gmm_params[..., :self.pose_dim]  # (batch, num_pose_tokens, num_components, pose_dim)
+        cov_params = gmm_params[..., self.pose_dim:2*self.pose_dim]  # (batch, num_pose_tokens, num_components, pose_dim)
+        # Diagonal covariance matrices
+        covariances = torch.zeros(batch_size, num_pose_tokens, self.num_components, self.pose_dim, self.pose_dim, device=gmm_params.device, dtype=gmm_params.dtype)
+        diag_indices = torch.arange(self.pose_dim)
+        covariances[..., diag_indices, diag_indices] = torch.exp(cov_params)
+        weights = gmm_params[..., -1]  # (batch, num_pose_tokens, num_components)
+        weights = torch.softmax(weights, dim=-1)
         return means, covariances, weights
     
     def predict_pose_distribution(self, pose_hidden_states: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

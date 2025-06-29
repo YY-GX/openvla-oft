@@ -519,8 +519,9 @@ def run_validation(
 
 
 # Create a wrapper to make OpenVLA's language_model compatible with LLMBackbone interface
-class OpenVLAWrapper:
+class OpenVLAWrapper(nn.Module):
     def __init__(self, language_model, processor):
+        super().__init__()
         self.llm = language_model
         self.tokenizer = processor.tokenizer  # Get tokenizer from processor
         self.config = language_model.config
@@ -618,6 +619,17 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         gmm_num_components=cfg.gmm_num_components,
         enable_mixed_precision_training=False,  # We want full precision for training
     ).to(device_id)
+    
+    # === LoRA setup ===
+    lora_config = LoraConfig(
+        r=cfg.lora_rank,
+        lora_alpha=min(cfg.lora_rank, 16),
+        lora_dropout=cfg.lora_dropout,
+        target_modules="all-linear",
+        init_lora_weights="gaussian",
+    )
+    vla = get_peft_model(vla, lora_config)
+    vla.print_trainable_parameters()
     
     # Freeze VLA backbone (only train pose head)
     for param in vla.parameters():
