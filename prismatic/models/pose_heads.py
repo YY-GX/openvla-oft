@@ -142,13 +142,15 @@ class GMMPoseHead(nn.Module):
         Compute negative log-likelihood loss for GMM.
         
         Args:
-            pose_hidden_states: Hidden states from LLM for pose tokens
+            pose_hidden_states: Hidden states from LLM for pose tokens (batch_size, num_pose_tokens, hidden_dim)
             target_poses: Target poses: (batch_size, pose_dim)
         
         Returns:
             Loss value
         """
         print("          - [GMMPoseHead.compute_loss] Starting...")
+        print(f"          - [GMMPoseHead.compute_loss] pose_hidden_states shape: {pose_hidden_states.shape}")
+        print(f"          - [GMMPoseHead.compute_loss] target_poses shape: {target_poses.shape}")
         
         # Ensure all tensors are in bfloat16 to prevent dtype mismatches
         print("          - [GMMPoseHead.compute_loss] Ensuring bfloat16 dtype...")
@@ -158,10 +160,23 @@ class GMMPoseHead(nn.Module):
         
         print("          - [GMMPoseHead.compute_loss] Calling forward to get GMM parameters...")
         means, covariances, weights = self.forward(pose_hidden_states)
-        print("          - [GMMPoseHead.compute_loss] GMM parameters obtained")
+        print(f"          - [GMMPoseHead.compute_loss] means shape: {means.shape}")
+        print(f"          - [GMMPoseHead.compute_loss] covariances shape: {covariances.shape}")
+        print(f"          - [GMMPoseHead.compute_loss] weights shape: {weights.shape}")
         
-        batch_size = means.shape[0]
-        print(f"          - [GMMPoseHead.compute_loss] Batch size: {batch_size}, num_components: {self.num_components}")
+        batch_size, num_pose_tokens = means.shape[:2]
+        print(f"          - [GMMPoseHead.compute_loss] Batch size: {batch_size}, num_pose_tokens: {num_pose_tokens}, num_components: {self.num_components}")
+        
+        # For now, let's use only the first pose token for loss computation
+        # This is a simplified approach - we can extend to multiple tokens later
+        print("          - [GMMPoseHead.compute_loss] Using first pose token for loss computation...")
+        means = means[:, 0, :, :]  # (batch_size, num_components, pose_dim)
+        covariances = covariances[:, 0, :, :, :]  # (batch_size, num_components, pose_dim, pose_dim)
+        weights = weights[:, 0, :]  # (batch_size, num_components)
+        
+        print(f"          - [GMMPoseHead.compute_loss] After selection - means shape: {means.shape}")
+        print(f"          - [GMMPoseHead.compute_loss] After selection - covariances shape: {covariances.shape}")
+        print(f"          - [GMMPoseHead.compute_loss] After selection - weights shape: {weights.shape}")
         
         # Compute log-likelihood for each component
         print("          - [GMMPoseHead.compute_loss] Computing log-likelihood for each component...")
@@ -195,6 +210,7 @@ class GMMPoseHead(nn.Module):
         
         # Compute weighted log-likelihood
         print("          - [GMMPoseHead.compute_loss] Computing weighted log-likelihood...")
+        print(f"          - [GMMPoseHead.compute_loss] weights shape: {weights.shape}")
         weighted_log_probs = log_probs + torch.log(ensure_bfloat16(weights) + 1e-8)
         
         # Use logsumexp for numerical stability
