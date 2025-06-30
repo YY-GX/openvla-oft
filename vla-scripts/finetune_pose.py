@@ -645,35 +645,18 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     pose_head_params = sum(p.numel() for p in vla.pose_head.parameters() if p.requires_grad)
     print(f"[Pose Head] Trainable parameters: {pose_head_params:,}")
     
-    # Freeze VLA backbone (only train pose head)
+    # Freeze all parameters first
     for param in vla.parameters():
         param.requires_grad = False
-    
-    # Initialize pose head
-    hidden_dim = vla.config.hidden_size
-    if cfg.pose_head_type == "gmm":
-        pose_head = GMMPoseHead(
-            input_dim=hidden_dim,
-            hidden_dim=hidden_dim,
-            pose_dim=cfg.pose_dim,
-            num_components=cfg.gmm_num_components,
-        )
-    else:
-        pose_head = SimplePoseHead(
-            input_dim=hidden_dim,
-            hidden_dim=hidden_dim,
-            pose_dim=cfg.pose_dim,
-        )
-    
-    # Move models to device
-    vla = vla.to(device_id)
-    pose_head = pose_head.to(device_id).to(torch.bfloat16)
-    
+    # Unfreeze LoRA and pose head parameters
+    for name, param in vla.named_parameters():
+        if "lora" in name or "pose_head" in name:
+            param.requires_grad = True
+
     # Wrap with DDP if using distributed training
     if distributed_state.num_processes > 1:
         vla = wrap_ddp(vla, device_id)
-        pose_head = wrap_ddp(pose_head, device_id)
-    
+
     # Count parameters
     if distributed_state.is_main_process:
         count_parameters(vla, "VLA")
