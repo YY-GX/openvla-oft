@@ -164,10 +164,15 @@ class PoseVLM(PrismaticVLM):
         
         # Forward through LLM
         print("        - [PoseVLM.forward] Forwarding through LLM...")
-        llm_outputs = self.llm_backbone(**llm_inputs)
+        llm_outputs = self.llm_backbone(**llm_inputs, output_hidden_states=True)
         print("        - [PoseVLM.forward] LLM forward completed")
         
-        hidden_states = llm_outputs.hidden_states[-1]  # Use last layer
+        # Check if hidden_states is available
+        if llm_outputs.hidden_states is None:
+            print("        - [PoseVLM.forward] WARNING: hidden_states is None, using last_hidden_state")
+            hidden_states = llm_outputs.last_hidden_state
+        else:
+            hidden_states = llm_outputs.hidden_states[-1]  # Use last layer
         print(f"        - [PoseVLM.forward] Hidden states shape: {hidden_states.shape}")
         
         # Extract pose token hidden states
