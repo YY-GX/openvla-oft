@@ -148,40 +148,62 @@ class GMMPoseHead(nn.Module):
         Returns:
             Loss value
         """
+        print("          - [GMMPoseHead.compute_loss] Starting...")
+        
         # Ensure all tensors are in bfloat16 to prevent dtype mismatches
+        print("          - [GMMPoseHead.compute_loss] Ensuring bfloat16 dtype...")
         pose_hidden_states = ensure_bfloat16(pose_hidden_states)
         target_poses = ensure_bfloat16(target_poses)
+        print("          - [GMMPoseHead.compute_loss] Dtype conversion completed")
         
+        print("          - [GMMPoseHead.compute_loss] Calling forward to get GMM parameters...")
         means, covariances, weights = self.forward(pose_hidden_states)
+        print("          - [GMMPoseHead.compute_loss] GMM parameters obtained")
+        
         batch_size = means.shape[0]
+        print(f"          - [GMMPoseHead.compute_loss] Batch size: {batch_size}, num_components: {self.num_components}")
         
         # Compute log-likelihood for each component
+        print("          - [GMMPoseHead.compute_loss] Computing log-likelihood for each component...")
         log_probs = []
         for b in range(batch_size):
+            print(f"            - [GMMPoseHead.compute_loss] Processing batch item {b}...")
             batch_log_probs = []
             for c in range(self.num_components):
+                print(f"              - [GMMPoseHead.compute_loss] Processing component {c}...")
                 mean = ensure_bfloat16(means[b, c])  # (pose_dim,)
                 cov = ensure_bfloat16(covariances[b, c])  # (pose_dim, pose_dim)
                 target = ensure_bfloat16(target_poses[b])  # (pose_dim,)
                 
                 # Compute log probability
+                print(f"                - [GMMPoseHead.compute_loss] Creating MultivariateNormal distribution...")
                 dist = torch.distributions.MultivariateNormal(mean, cov)
+                print(f"                - [GMMPoseHead.compute_loss] Computing log probability...")
                 log_prob = dist.log_prob(target)
+                print(f"                - [GMMPoseHead.compute_loss] Log probability computed: {log_prob.item()}")
                 batch_log_probs.append(log_prob)
             
             batch_log_probs = torch.stack(batch_log_probs)  # (num_components,)
             log_probs.append(batch_log_probs)
+            print(f"            - [GMMPoseHead.compute_loss] Batch item {b} completed")
         
         log_probs = torch.stack(log_probs)  # (batch_size, num_components)
+        print(f"          - [GMMPoseHead.compute_loss] Log probabilities shape: {log_probs.shape}")
         
         # Compute weighted log-likelihood
+        print("          - [GMMPoseHead.compute_loss] Computing weighted log-likelihood...")
         weighted_log_probs = log_probs + torch.log(ensure_bfloat16(weights) + 1e-8)
         
         # Use logsumexp for numerical stability
+        print("          - [GMMPoseHead.compute_loss] Computing logsumexp...")
         total_log_prob = torch.logsumexp(weighted_log_probs, dim=-1)
         
         # Return negative log-likelihood
-        return -torch.mean(total_log_prob)
+        print("          - [GMMPoseHead.compute_loss] Computing final loss...")
+        loss = -torch.mean(total_log_prob)
+        print(f"          - [GMMPoseHead.compute_loss] Final loss: {loss.item()}")
+        
+        return loss
 
 
 class SimplePoseHead(nn.Module):

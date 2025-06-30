@@ -133,33 +133,50 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Dictionary with model outputs
         """
+        print("        - [PoseVLM.forward] Starting forward pass...")
+        
         # Ensure images are in bfloat16
+        print("        - [PoseVLM.forward] Ensuring images are bfloat16...")
         images = ensure_bfloat16(images)
         
         batch_size = images.shape[0]
+        print(f"        - [PoseVLM.forward] Batch size: {batch_size}")
         
         # Process images through vision backbone
+        print("        - [PoseVLM.forward] Processing images through vision backbone...")
         image_features = self.vision_backbone(images)  # (batch_size, num_images, hidden_dim)
+        print(f"        - [PoseVLM.forward] Image features shape: {image_features.shape}")
         
         # Project image features
+        print("        - [PoseVLM.forward] Projecting image features...")
         projected_image_features = self.projector(image_features)  # (batch_size, num_images, llm_hidden_dim)
+        print(f"        - [PoseVLM.forward] Projected features shape: {projected_image_features.shape}")
         
         # Prepare LLM inputs
+        print("        - [PoseVLM.forward] Preparing LLM inputs...")
         llm_inputs = self._prepare_llm_inputs(
             text=text,
             text_attention_mask=text_attention_mask,
             projected_image_features=projected_image_features,
             pose_tokens=pose_tokens,
         )
+        print("        - [PoseVLM.forward] LLM inputs prepared")
         
         # Forward through LLM
+        print("        - [PoseVLM.forward] Forwarding through LLM...")
         llm_outputs = self.llm_backbone(**llm_inputs)
+        print("        - [PoseVLM.forward] LLM forward completed")
+        
         hidden_states = llm_outputs.hidden_states[-1]  # Use last layer
+        print(f"        - [PoseVLM.forward] Hidden states shape: {hidden_states.shape}")
         
         # Extract pose token hidden states
+        print("        - [PoseVLM.forward] Extracting pose token hidden states...")
         pose_hidden_states = self._extract_pose_hidden_states(hidden_states, llm_inputs['attention_mask'])
+        print(f"        - [PoseVLM.forward] Pose hidden states shape: {pose_hidden_states.shape}")
         
         # Predict poses
+        print("        - [PoseVLM.forward] Predicting poses...")
         if self.pose_head_type == "gmm":
             means, covariances, weights = self.pose_head(pose_hidden_states)
             pose_outputs = {
@@ -172,13 +189,17 @@ class PoseVLM(PrismaticVLM):
             pose_outputs = {
                 'predicted_poses': predicted_poses,
             }
+        print("        - [PoseVLM.forward] Pose prediction completed")
         
         # Prepare output
+        print("        - [PoseVLM.forward] Preparing output...")
         outputs = {
             'pose_outputs': pose_outputs,
             'hidden_states': hidden_states,
             'llm_outputs': llm_outputs,
         }
+        
+        print("        - [PoseVLM.forward] Forward pass completed successfully!")
         
         if return_dict:
             return outputs
@@ -340,28 +361,38 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Loss value
         """
+        print("      - [PoseVLM.compute_loss] Starting...")
+        
         # Ensure all inputs are in bfloat16 to prevent dtype mismatches
+        print("      - [PoseVLM.compute_loss] Ensuring bfloat16 dtype...")
         images = ensure_bfloat16(images)
         text = text  # Keep as is (should be long/int)
         text_attention_mask = text_attention_mask  # Keep as is (should be long/int)
         target_poses = ensure_bfloat16(target_poses)
+        print("      - [PoseVLM.compute_loss] Dtype conversion completed")
         
         # Forward pass
+        print("      - [PoseVLM.compute_loss] Calling forward pass...")
         outputs = self.forward(
             images=images,
             text=text,
             text_attention_mask=text_attention_mask,
             pose_tokens=torch.zeros_like(target_poses),  # Dummy pose tokens
         )
+        print("      - [PoseVLM.compute_loss] Forward pass completed")
         
         # Extract pose hidden states
+        print("      - [PoseVLM.compute_loss] Extracting pose hidden states...")
         pose_hidden_states = self._extract_pose_hidden_states(
             outputs['hidden_states'],
             torch.ones(images.shape[0], outputs['hidden_states'].shape[1], device=images.device)
         )
+        print("      - [PoseVLM.compute_loss] Pose hidden states extracted")
         
         # Compute loss
+        print("      - [PoseVLM.compute_loss] Computing loss with pose head...")
         loss = self.pose_head.compute_loss(pose_hidden_states, target_poses)
+        print("      - [PoseVLM.compute_loss] Loss computation completed")
         
         return loss
     
