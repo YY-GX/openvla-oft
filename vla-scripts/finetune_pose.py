@@ -680,6 +680,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         count_parameters(pose_head, "Pose Head")
     
     # Create datasets
+    print("=== DATASET CREATION ===")
+    print("Creating train dataset...")
     train_dataset = create_pose_dataset(
         data_root=str(cfg.data_root_dir),
         split="train",
@@ -687,8 +689,10 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         use_image_augmentation=cfg.image_aug,
         tokenizer_name=processor.tokenizer.name_or_path,  # Use the tokenizer from processor like original code
     )
+    print("Train dataset created successfully!")
     
     if cfg.use_val_set:
+        print("Creating validation dataset...")
         val_dataset = create_pose_dataset(
             data_root=str(cfg.data_root_dir),
             split="val",
@@ -696,14 +700,18 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             use_image_augmentation=False,  # No augmentation for validation
             tokenizer_name=processor.tokenizer.name_or_path,  # Use the tokenizer from processor like original code
         )
+        print("Validation dataset created successfully!")
     
-    # Create data loaders
+    print("=== DATALOADER CREATION ===")
+    print("Creating data collator...")
     train_collator = PaddedCollatorForPosePrediction(
         model_max_length=cfg.max_length,
         pad_token_id=processor.tokenizer.pad_token_id,
         padding_side=processor.tokenizer.padding_side,
     )
+    print("Data collator created successfully!")
     
+    print("Creating train dataloader...")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=cfg.batch_size,
@@ -712,8 +720,10 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         num_workers=0,  # Reduce workers to avoid hanging
         pin_memory=False,  # Disable pin_memory to avoid issues
     )
+    print("Train dataloader created successfully!")
     
     if cfg.use_val_set:
+        print("Creating validation dataloader...")
         val_collator = PaddedCollatorForPosePrediction(
             model_max_length=cfg.max_length,
             pad_token_id=processor.tokenizer.pad_token_id,
@@ -728,32 +738,45 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             num_workers=0,  # Reduce workers to avoid hanging
             pin_memory=False,  # Disable pin_memory to avoid issues
         )
+        print("Validation dataloader created successfully!")
     
+    print("=== POSE AUGMENTATION CREATION ===")
     # Create pose augmentation
     pose_augmentation = None
     if cfg.pose_aug:
+        print("Creating pose augmentation...")
         pose_augmentation = create_pose_augmentation(
             augmentation_type="euler",
             position_std=cfg.pose_aug_position_std,
             orientation_std=cfg.pose_aug_orientation_std,
             enabled=True,
         )
+        print("Pose augmentation created successfully!")
+    else:
+        print("Skipping pose augmentation creation...")
     
+    print("=== OPTIMIZER/SCHEDULER CREATION ===")
     # Create optimizer and scheduler
+    print("Creating optimizer...")
     optimizer = AdamW(
         pose_head.parameters(),
         lr=cfg.learning_rate,
         weight_decay=0.01,
     )
+    print("Optimizer created successfully!")
     
+    print("Creating scheduler...")
     scheduler = MultiStepLR(
         optimizer,
         milestones=[cfg.num_steps_before_decay],
         gamma=0.1,
     )
+    print("Scheduler created successfully!")
     
+    print("=== CHECKPOINT RESUME ===")
     # Resume from checkpoint if specified
     if cfg.resume:
+        print("Resuming from checkpoint...")
         if cfg.resume_step is None:
             # Load latest checkpoint
             latest_checkpoint_path = run_dir / "latest_checkpoint.txt"
@@ -771,10 +794,15 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         pose_head.load_state_dict(pose_head_state_dict)
         
         print(f"Resumed from step {cfg.resume_step}")
+    else:
+        print("No resume specified, starting fresh...")
     
+    print("=== TRAINING LOOP SETUP ===")
     # Training loop
+    print("Setting models to train mode...")
     vla.train()
     pose_head.train()
+    print("Models set to train mode successfully!")
     
     print("Starting training loop...")
     
