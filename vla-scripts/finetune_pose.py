@@ -742,7 +742,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     # Create optimizer and scheduler
     print("Creating optimizer...")
     optimizer = AdamW(
-        pose_head.parameters(),
+        filter(lambda p: p.requires_grad, vla.parameters()),
         lr=cfg.learning_rate,
         weight_decay=0.01,
     )
