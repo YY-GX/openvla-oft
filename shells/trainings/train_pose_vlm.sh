@@ -29,7 +29,8 @@ sbatch \
     --num_pose_tokens 6 \
     --use_film False \
     --use_proprio False \
-    --batch_size 8 \
+    --batch_size 4 \
+    --grad_accumulation_steps 2 \
     --learning_rate 5e-4 \
     --num_steps_before_decay 100000 \
     --max_steps 200000 \
