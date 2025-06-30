@@ -14,6 +14,7 @@ from prismatic.models.vlms.prismatic import PrismaticVLM
 from prismatic.models.backbones.vision import VisionBackbone
 from prismatic.models.backbones.llm import LLMBackbone
 from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
+from prismatic.util import ensure_bfloat16
 
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,9 @@ class PoseVLM(PrismaticVLM):
         else:
             raise ValueError(f"Unknown pose head type: {self.pose_head_type}")
         
+        # Ensure pose head is in bfloat16
+        self.pose_head = self.pose_head.to(torch.bfloat16)
+        
         # Remove original action head if it exists
         if hasattr(self, 'action_head'):
             delattr(self, 'action_head')
@@ -126,6 +130,9 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Dictionary with model outputs
         """
+        # Ensure images are in bfloat16
+        images = ensure_bfloat16(images)
+        
         batch_size = images.shape[0]
         
         # Process images through vision backbone
@@ -330,6 +337,12 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Loss value
         """
+        # Ensure all inputs are in bfloat16 to prevent dtype mismatches
+        images = ensure_bfloat16(images)
+        text = text  # Keep as is (should be long/int)
+        text_attention_mask = text_attention_mask  # Keep as is (should be long/int)
+        target_poses = ensure_bfloat16(target_poses)
+        
         # Forward pass
         outputs = self.forward(
             images=images,

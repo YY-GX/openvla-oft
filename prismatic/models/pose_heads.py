@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple, Optional
+from prismatic.util import ensure_bfloat16
 
 from prismatic.models.action_heads import MLPResNet
 
@@ -70,18 +71,21 @@ class GMMPoseHead(nn.Module):
             covariances: (batch_size, num_pose_tokens, num_components, pose_dim, pose_dim)
             weights: (batch_size, num_pose_tokens, num_components)
         """
+        # Ensure input is in bfloat16
+        pose_hidden_states = ensure_bfloat16(pose_hidden_states)
+        
         batch_size, num_pose_tokens, hidden_dim = pose_hidden_states.shape
         # Apply shared MLP to each token
         gmm_params = self.mlp(pose_hidden_states)  # (batch, num_pose_tokens, gmm_output_dim)
         # Split GMM params for each token
         gmm_params = gmm_params.view(batch_size, num_pose_tokens, self.num_components, -1)
-        means = gmm_params[..., :self.pose_dim]  # (batch, num_pose_tokens, num_components, pose_dim)
-        cov_params = gmm_params[..., self.pose_dim:2*self.pose_dim]  # (batch, num_pose_tokens, num_components, pose_dim)
+        means = ensure_bfloat16(gmm_params[..., :self.pose_dim])  # (batch, num_pose_tokens, num_components, pose_dim)
+        cov_params = ensure_bfloat16(gmm_params[..., self.pose_dim:2*self.pose_dim])  # (batch, num_pose_tokens, num_components, pose_dim)
         # Diagonal covariance matrices
-        covariances = torch.zeros(batch_size, num_pose_tokens, self.num_components, self.pose_dim, self.pose_dim, device=gmm_params.device, dtype=gmm_params.dtype)
+        covariances = torch.zeros(batch_size, num_pose_tokens, self.num_components, self.pose_dim, self.pose_dim, device=gmm_params.device, dtype=torch.bfloat16)
         diag_indices = torch.arange(self.pose_dim)
         covariances[..., diag_indices, diag_indices] = torch.exp(cov_params)
-        weights = gmm_params[..., -1]  # (batch, num_pose_tokens, num_components)
+        weights = ensure_bfloat16(gmm_params[..., -1])  # (batch, num_pose_tokens, num_components)
         weights = torch.softmax(weights, dim=-1)
         return means, covariances, weights
     
@@ -144,6 +148,10 @@ class GMMPoseHead(nn.Module):
         Returns:
             Loss value
         """
+        # Ensure all tensors are in bfloat16 to prevent dtype mismatches
+        pose_hidden_states = ensure_bfloat16(pose_hidden_states)
+        target_poses = ensure_bfloat16(target_poses)
+        
         means, covariances, weights = self.forward(pose_hidden_states)
         batch_size = means.shape[0]
         
@@ -152,9 +160,9 @@ class GMMPoseHead(nn.Module):
         for b in range(batch_size):
             batch_log_probs = []
             for c in range(self.num_components):
-                mean = means[b, c]  # (pose_dim,)
-                cov = covariances[b, c]  # (pose_dim, pose_dim)
-                target = target_poses[b]  # (pose_dim,)
+                mean = ensure_bfloat16(means[b, c])  # (pose_dim,)
+                cov = ensure_bfloat16(covariances[b, c])  # (pose_dim, pose_dim)
+                target = ensure_bfloat16(target_poses[b])  # (pose_dim,)
                 
                 # Compute log probability
                 dist = torch.distributions.MultivariateNormal(mean, cov)
@@ -167,7 +175,7 @@ class GMMPoseHead(nn.Module):
         log_probs = torch.stack(log_probs)  # (batch_size, num_components)
         
         # Compute weighted log-likelihood
-        weighted_log_probs = log_probs + torch.log(weights + 1e-8)
+        weighted_log_probs = log_probs + torch.log(ensure_bfloat16(weights) + 1e-8)
         
         # Use logsumexp for numerical stability
         total_log_prob = torch.logsumexp(weighted_log_probs, dim=-1)
@@ -222,6 +230,9 @@ class SimplePoseHead(nn.Module):
         Returns:
             Predicted poses: (batch_size, pose_dim)
         """
+        # Ensure input is in bfloat16
+        pose_hidden_states = ensure_bfloat16(pose_hidden_states)
+        
         batch_size = pose_hidden_states.shape[0]
         
         # Reshape to match original pattern
@@ -230,7 +241,7 @@ class SimplePoseHead(nn.Module):
         # Predict pose
         pose = self.model(rearranged_states)
         
-        return pose
+        return ensure_bfloat16(pose)
     
     def predict_pose(self, pose_hidden_states: torch.Tensor) -> torch.Tensor:
         """
@@ -255,5 +266,9 @@ class SimplePoseHead(nn.Module):
         Returns:
             Loss value
         """
+        # Ensure all tensors are in bfloat16 to prevent dtype mismatches
+        pose_hidden_states = ensure_bfloat16(pose_hidden_states)
+        target_poses = ensure_bfloat16(target_poses)
+        
         predicted_poses = self.forward(pose_hidden_states)
         return F.l1_loss(predicted_poses, target_poses) 
