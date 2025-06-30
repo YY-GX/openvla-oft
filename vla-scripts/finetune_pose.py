@@ -51,6 +51,9 @@ from prismatic.vla.datasets.pose_dataset import create_pose_dataset
 from prismatic.util.pose_augmentation import create_pose_augmentation
 from prismatic.util import ensure_bfloat16, ensure_bfloat16_batch
 
+import signal
+from contextlib import contextmanager
+
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -77,7 +80,7 @@ class PoseFinetuneConfig:
     max_length: int = 512                            # Maximum sequence length for text tokens
 
     # Training configuration
-    batch_size: int = 8                              # Batch size per device (total batch size = batch_size * num GPUs)
+    batch_size: int = 1                              # Batch size per device (total batch size = batch_size * num GPUs) - REDUCED FOR DEBUGGING
     learning_rate: float = 5e-4                      # Learning rate
     lr_warmup_steps: int = 0                         # Number of steps to warm up learning rate (from 10%% to 100%%)
     num_steps_before_decay: int = 100_000            # Number of steps before LR decays by 10x
@@ -283,16 +286,19 @@ def run_forward_pass(
     Returns:
         Tuple[torch.Tensor, Dict[str, float]]: Loss and metrics.
     """
+    print("    - Extracting batch components...")
     # Extract batch components and ensure bfloat16 dtype
     images = ensure_bfloat16(batch["pixel_values"].to(device_id))
     text = batch["input_ids"].to(device_id)
     text_attention_mask = batch["attention_mask"].to(device_id)
     target_poses = batch["pose_targets"].to(device_id)
     
+    print("    - Applying pose augmentation...")
     # Apply pose augmentation if enabled
     if pose_augmentation is not None and pose_augmentation.enabled:
         target_poses = pose_augmentation(target_poses)
     
+    print("    - Computing loss using PoseVLM...")
     # Compute loss using PoseVLM's built-in method
     loss = vla.compute_loss(
         images=images,
@@ -301,6 +307,7 @@ def run_forward_pass(
         target_poses=target_poses,
     )
     
+    print("    - Computing additional metrics...")
     # Compute additional metrics
     with torch.no_grad():
         # Get predictions for metrics
@@ -332,6 +339,7 @@ def run_forward_pass(
                 "l1_error": l1_error.item(),
             }
     
+    print("    - Forward pass completed successfully!")
     return loss, metrics
 
 
@@ -776,6 +784,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         test_batch = next(iter(train_dataloader))
         print(f"Successfully loaded test batch with keys: {list(test_batch.keys())}")
         print(f"Batch shapes: pixel_values={test_batch['pixel_values'].shape}, input_ids={test_batch['input_ids'].shape}")
+        print(f"Batch dtypes: pixel_values={test_batch['pixel_values'].dtype}, pose_targets={test_batch['pose_targets'].dtype}")
     except Exception as e:
         print(f"Error loading test batch: {e}")
         return
