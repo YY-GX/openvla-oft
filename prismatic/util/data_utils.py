@@ -166,7 +166,7 @@ class PaddedCollatorForPosePrediction:
     model_max_length: int
     pad_token_id: int
     padding_side: str = "right"
-    pixel_values_dtype: torch.dtype = torch.float32
+    pixel_values_dtype: torch.dtype = torch.bfloat16
 
     def __call__(self, instances: Sequence[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
         """
@@ -200,12 +200,12 @@ class PaddedCollatorForPosePrediction:
 
         # Stack pixel values (following original patterns)
         if isinstance(pixel_values[0], torch.Tensor):
-            pixel_values = torch.stack(pixel_values)
+            pixel_values = torch.stack(pixel_values).to(self.pixel_values_dtype)
         else:
             raise ValueError(f"Unsupported `pixel_values` type = {type(pixel_values)}")
 
         # Stack pose targets
-        pose_targets = torch.stack(pose_targets)
+        pose_targets = torch.stack(pose_targets).to(self.pixel_values_dtype)
 
         # Create output dictionary
         output = dict(

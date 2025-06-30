@@ -77,6 +77,9 @@ class PoseVLM(PrismaticVLM):
         # Replace action head with pose head
         self._setup_pose_head()
         
+        # Move entire model to bfloat16 to prevent dtype mismatches
+        self.to(torch.bfloat16)
+        
         # Update model info
         self.model_type = "pose_vlm"
         logger.info(f"Initialized PoseVLM with {pose_head_type} pose head")

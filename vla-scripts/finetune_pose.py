@@ -630,7 +630,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         pose_head_type=cfg.pose_head_type,
         pose_dim=cfg.pose_dim,
         gmm_num_components=cfg.gmm_num_components,
-        enable_mixed_precision_training=False,  # We want full precision for training
+        enable_mixed_precision_training=True,  # Enable mixed precision for bfloat16
     ).to(device_id)
 
     # Print trainable parameter count for pose head
@@ -659,7 +659,7 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     
     # Move models to device
     vla = vla.to(device_id)
-    pose_head = pose_head.to(device_id)
+    pose_head = pose_head.to(device_id).to(torch.bfloat16)
     
     # Wrap with DDP if using distributed training
     if distributed_state.num_processes > 1:
