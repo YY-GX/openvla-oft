@@ -78,7 +78,11 @@ class PoseAugmentation:
         if is_torch:
             device = pose.device
             dtype = pose.dtype
-            pose_np = pose.detach().cpu().numpy()
+            # Convert bfloat16 to float32 for numpy compatibility
+            if pose.dtype == torch.bfloat16:
+                pose_np = pose.detach().cpu().to(torch.float32).numpy()
+            else:
+                pose_np = pose.detach().cpu().numpy()
         else:
             pose_np = pose.copy()
         

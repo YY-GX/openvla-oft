@@ -8,6 +8,7 @@ import torch.nn as nn
 from prismatic.util import ensure_bfloat16
 from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
 from prismatic.util.data_utils import PaddedCollatorForPosePrediction
+from prismatic.util.pose_augmentation import create_pose_augmentation
 
 
 def test_pose_head_dtype():
@@ -109,6 +110,40 @@ def test_collator_dtype():
         return False
 
 
+def test_pose_augmentation_dtype():
+    """Test that pose augmentation handles bfloat16 tensors correctly."""
+    print("Testing pose augmentation dtype handling...")
+    
+    # Create pose augmentation
+    pose_augmentation = create_pose_augmentation(
+        augmentation_type="euler",
+        position_std=0.02,
+        orientation_std=0.1,
+        enabled=True,
+    )
+    
+    # Create bfloat16 tensor
+    batch_size = 2
+    pose_dim = 6
+    poses = torch.randn(batch_size, pose_dim, dtype=torch.bfloat16)
+    
+    try:
+        # Apply augmentation
+        augmented_poses = pose_augmentation(poses)
+        
+        # Check that output is still bfloat16
+        assert augmented_poses.dtype == torch.bfloat16, f"Expected bfloat16, got {augmented_poses.dtype}"
+        assert augmented_poses.shape == poses.shape, f"Shape mismatch: {augmented_poses.shape} vs {poses.shape}"
+        
+        print(f"✓ Pose augmentation test passed")
+        print(f"  - Input shape: {poses.shape}, dtype: {poses.dtype}")
+        print(f"  - Output shape: {augmented_poses.shape}, dtype: {augmented_poses.dtype}")
+        return True
+    except Exception as e:
+        print(f"✗ Pose augmentation test failed: {e}")
+        return False
+
+
 def test_ensure_bfloat16():
     """Test the ensure_bfloat16 utility function."""
     print("Testing ensure_bfloat16 utility...")
@@ -130,6 +165,7 @@ def main():
         test_ensure_bfloat16,
         test_pose_head_dtype,
         test_collator_dtype,
+        test_pose_augmentation_dtype,
     ]
     
     all_passed = True
