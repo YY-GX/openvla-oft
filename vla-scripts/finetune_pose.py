@@ -298,12 +298,20 @@ def run_forward_pass(
     
     print("    - Computing loss using PoseVLM...")
     # Compute loss using PoseVLM's built-in method
-    loss = vla.compute_loss(
-        images=images,
-        text=text,
-        text_attention_mask=text_attention_mask,
-        target_poses=target_poses,
-    )
+    if hasattr(vla, 'module'):
+        loss = vla.module.compute_loss(
+            images=images,
+            text=text,
+            text_attention_mask=text_attention_mask,
+            target_poses=target_poses,
+        )
+    else:
+        loss = vla.compute_loss(
+            images=images,
+            text=text,
+            text_attention_mask=text_attention_mask,
+            target_poses=target_poses,
+        )
     
     print("    - Computing additional metrics...")
     # Compute additional metrics
