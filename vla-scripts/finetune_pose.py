@@ -780,13 +780,21 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     
     # Test loading one batch first
     print("Testing batch loading...")
+    print("  - Creating iterator...")
     try:
-        test_batch = next(iter(train_dataloader))
+        iterator = iter(train_dataloader)
+        print("  - Iterator created successfully!")
+        print("  - Getting first batch...")
+        print("  - This will call __getitem__ for each sample in the batch...")
+        test_batch = next(iterator)
+        print("  - First batch retrieved successfully!")
         print(f"Successfully loaded test batch with keys: {list(test_batch.keys())}")
         print(f"Batch shapes: pixel_values={test_batch['pixel_values'].shape}, input_ids={test_batch['input_ids'].shape}")
         print(f"Batch dtypes: pixel_values={test_batch['pixel_values'].dtype}, pose_targets={test_batch['pose_targets'].dtype}")
     except Exception as e:
         print(f"Error loading test batch: {e}")
+        import traceback
+        traceback.print_exc()
         return
     
     metrics_deques = {

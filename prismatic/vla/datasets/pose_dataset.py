@@ -39,6 +39,7 @@ class PoseDataset(Dataset):
         use_image_augmentation: bool = False,
         pose_augmentation: Optional[Any] = None,
         tokenizer_name: str = "microsoft/DialoGPT-medium",
+        max_samples: Optional[int] = None,  # Add max_samples parameter for debugging
         **kwargs
     ):
         """
@@ -53,6 +54,7 @@ class PoseDataset(Dataset):
             use_image_augmentation: Whether to use image augmentation
             pose_augmentation: Pose augmentation object
             tokenizer_name: Name of tokenizer to use
+            max_samples: Maximum number of samples to load for debugging
         """
         super().__init__()
         
@@ -70,6 +72,12 @@ class PoseDataset(Dataset):
             raise FileNotFoundError(f"Annotation file not found: {annotation_path}")
         
         self.annotation_df = pd.read_csv(annotation_path)
+        
+        # Limit dataset size for debugging
+        if max_samples is not None and max_samples < len(self.annotation_df):
+            self.annotation_df = self.annotation_df.head(max_samples)
+            overwatch.info(f"Limited dataset to {max_samples} samples for debugging")
+        
         overwatch.info(f"Loaded {len(self.annotation_df)} samples for {split} split")
         
         # Load poses
@@ -147,16 +155,23 @@ class PoseDataset(Dataset):
     def _load_image(self, image_idx: int) -> torch.Tensor:
         """Load and preprocess image."""
         image_path = os.path.join(self.image_dir, f"{image_idx:05d}.jpg")
+        print(f"      - Opening image file: {image_path}")
         image = Image.open(image_path).convert('RGB')
+        print(f"      - Image opened successfully, size: {image.size}")
         
         # Apply augmentation if training
         if self.split == "train" and self.use_image_augmentation:
+            print(f"      - Applying augmentation...")
             image = self.aug_transform(image)
         else:
+            print(f"      - Applying basic transform...")
             image = self.transform(image)
         
+        print(f"      - Transform applied, tensor shape: {image.shape}")
         # Ensure image is in bfloat16 to prevent dtype mismatches
-        return image.to(torch.bfloat16)
+        result = image.to(torch.bfloat16)
+        print(f"      - Converted to bfloat16, final shape: {result.shape}")
+        return result
     
     def _tokenize_text(self, text: str) -> Dict[str, torch.Tensor]:
         """Tokenize text following original patterns."""
@@ -193,7 +208,9 @@ class PoseDataset(Dataset):
         try:
             # Load image(s)
             if self.num_images_in_input == 1:
+                print(f"    - Loading image {sample['overview_image_idx']}...")
                 image = self._load_image(sample['overview_image_idx'])
+                print(f"    - Image loaded successfully, shape: {image.shape}")
                 # Duplicate channels to match OpenVLA's expected 6-channel format (3 regular + 3 fused)
                 pixel_values = torch.cat([image, image], dim=0)  # (6, height, width)
             elif self.num_images_in_input == 2:
@@ -206,11 +223,15 @@ class PoseDataset(Dataset):
             else:
                 raise ValueError(f"Unsupported num_images_in_input: {self.num_images_in_input}")
             
+            print(f"    - Tokenizing text...")
             # Tokenize text
             text_encoding = self._tokenize_text(sample['language_description'])
+            print(f"    - Text tokenized successfully")
             
+            print(f"    - Getting pose target...")
             # Get pose target
             pose_target = self._get_pose_target(sample['ee_pose_idx'])
+            print(f"    - Pose target retrieved successfully")
             
             # Create sample
             sample_dict = {
@@ -223,6 +244,7 @@ class PoseDataset(Dataset):
                 "ee_pose_idx": sample['ee_pose_idx']
             }
             
+            print(f"    - Sample {idx} created successfully")
             return sample_dict
             
         except Exception as e:
