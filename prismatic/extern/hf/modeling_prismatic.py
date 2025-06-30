@@ -124,13 +124,29 @@ class PrismaticVisionBackbone(nn.Module):
         Returns:
             A configured featurizer model
         """
-        featurizer = timm.create_model(
-            model_id,
-            pretrained=False,
-            num_classes=0,
-            img_size=img_size,
-            act_layer=act_layer,
-        )
+        print(f"            - [PrismaticVisionBackbone._create_featurizer] Creating featurizer for model_id: {model_id}")
+        print(f"            - [PrismaticVisionBackbone._create_featurizer] img_size: {img_size}, act_layer: {act_layer}")
+        
+        try:
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] Creating TIMM model with pretrained=True...")
+            featurizer = timm.create_model(
+                model_id,
+                pretrained=True,  # Changed from False to True to avoid unnecessary downloads
+                num_classes=0,
+                img_size=img_size,
+                act_layer=act_layer,
+            )
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] TIMM model created successfully!")
+        except Exception as e:
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] Error creating TIMM model: {e}")
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] Falling back to pretrained=False...")
+            featurizer = timm.create_model(
+                model_id,
+                pretrained=False,
+                num_classes=0,
+                img_size=img_size,
+                act_layer=act_layer,
+            )
 
         # Monkey-patch the forward function to extract the second-to-last layer features
         num_blocks = len(featurizer.blocks)
