@@ -171,9 +171,10 @@ class GMMPoseHead(nn.Module):
             batch_log_probs = []
             for c in range(self.num_components):
                 print(f"              - [GMMPoseHead.compute_loss] Processing component {c}...")
-                mean = ensure_bfloat16(means[b, c])  # (pose_dim,)
-                cov = ensure_bfloat16(covariances[b, c])  # (pose_dim, pose_dim)
-                target = ensure_bfloat16(target_poses[b])  # (pose_dim,)
+                # Convert to float32 for MultivariateNormal (Cholesky doesn't support bfloat16)
+                mean = means[b, c].float()  # (pose_dim,)
+                cov = covariances[b, c].float()  # (pose_dim, pose_dim)
+                target = target_poses[b].float()  # (pose_dim,)
                 
                 # Compute log probability
                 print(f"                - [GMMPoseHead.compute_loss] Creating MultivariateNormal distribution...")
@@ -181,6 +182,8 @@ class GMMPoseHead(nn.Module):
                 print(f"                - [GMMPoseHead.compute_loss] Computing log probability...")
                 log_prob = dist.log_prob(target)
                 print(f"                - [GMMPoseHead.compute_loss] Log probability computed: {log_prob.item()}")
+                # Convert back to bfloat16
+                log_prob = ensure_bfloat16(log_prob)
                 batch_log_probs.append(log_prob)
             
             batch_log_probs = torch.stack(batch_log_probs)  # (num_components,)
@@ -198,9 +201,9 @@ class GMMPoseHead(nn.Module):
         print("          - [GMMPoseHead.compute_loss] Computing logsumexp...")
         total_log_prob = torch.logsumexp(weighted_log_probs, dim=-1)
         
-        # Return negative log-likelihood
+        # Return negative log-likelihood (loss)
         print("          - [GMMPoseHead.compute_loss] Computing final loss...")
-        loss = -torch.mean(total_log_prob)
+        loss = -total_log_prob.mean()
         print(f"          - [GMMPoseHead.compute_loss] Final loss: {loss.item()}")
         
         return loss
