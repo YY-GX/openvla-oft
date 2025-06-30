@@ -262,7 +262,6 @@ def init_module(
 
 def run_forward_pass(
     vla,
-    pose_head,
     batch,
     device_id,
     cfg,
@@ -275,7 +274,6 @@ def run_forward_pass(
 
     Args:
         vla: PoseVLM model.
-        pose_head: Pose prediction head (not used, included for compatibility).
         batch: Input batch.
         device_id: Device ID.
         cfg: Training configuration.
@@ -382,7 +380,6 @@ def save_training_checkpoint(
     log_step,
     vla,
     processor,
-    pose_head,
     train_dataset,
     distributed_state,
 ) -> None:
@@ -395,7 +392,6 @@ def save_training_checkpoint(
         log_step (int): Current step.
         vla: OpenVLA model.
         processor: Data processor.
-        pose_head: Pose prediction head.
         train_dataset: Training dataset.
         distributed_state: Distributed training state.
     """
@@ -411,19 +407,6 @@ def save_training_checkpoint(
             vla_checkpoint_path,
         )
         print(f"Saved VLA checkpoint to {vla_checkpoint_path}")
-    
-    # Save pose head checkpoint
-    if distributed_state.is_main_process:
-        pose_head_checkpoint_path = run_dir / f"pose_head--{log_step}_checkpoint.pt"
-        torch.save(
-            {
-                "model": pose_head.state_dict(),
-                "step": log_step,
-                "config": cfg,
-            },
-            pose_head_checkpoint_path,
-        )
-        print(f"Saved pose head checkpoint to {pose_head_checkpoint_path}")
     
     # Save processor
     if distributed_state.is_main_process:
@@ -448,14 +431,12 @@ def save_training_checkpoint(
     if cfg.save_latest_checkpoint_only and distributed_state.is_main_process:
         for checkpoint_file in run_dir.glob("*_checkpoint.pt"):
             if checkpoint_file.name != f"vla--{log_step}_checkpoint.pt" and \
-               checkpoint_file.name != f"pose_head--{log_step}_checkpoint.pt" and \
                checkpoint_file.name != f"processor--{log_step}_checkpoint.pt":
                 checkpoint_file.unlink()
 
 
 def run_validation(
     vla,
-    pose_head,
     val_dataloader,
     device_id,
     cfg,
@@ -470,7 +451,6 @@ def run_validation(
 
     Args:
         vla: OpenVLA model.
-        pose_head: Pose prediction head.
         val_dataloader: Validation data loader.
         device_id: Device ID.
         cfg (PoseFinetuneConfig): Training configuration.
@@ -481,7 +461,6 @@ def run_validation(
         pose_augmentation: Pose augmentation object.
     """
     vla.eval()
-    pose_head.eval()
     
     val_metrics_deques = {
         "loss": deque(maxlen=100),
@@ -500,7 +479,6 @@ def run_validation(
             
             loss, metrics = run_forward_pass(
                 vla=vla,
-                pose_head=pose_head,
                 batch=batch,
                 device_id=device_id,
                 cfg=cfg,
@@ -524,7 +502,6 @@ def run_validation(
         log_metrics_to_wandb(val_metrics, "val", log_step, cfg.wandb_entity)
     
     vla.train()
-    pose_head.train()
 
 
 # Create a wrapper to make OpenVLA's language_model compatible with LLMBackbone interface
@@ -660,7 +637,6 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     # Count parameters
     if distributed_state.is_main_process:
         count_parameters(vla, "VLA")
-        count_parameters(pose_head, "Pose Head")
     
     # Create datasets
     print("=== DATASET CREATION ===")
@@ -771,10 +747,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         
         # Load checkpoints
         vla_state_dict = load_checkpoint("vla", str(run_dir), cfg.resume_step, device_id)
-        pose_head_state_dict = load_checkpoint("pose_head", str(run_dir), cfg.resume_step, device_id)
         
         vla.load_state_dict(vla_state_dict)
-        pose_head.load_state_dict(pose_head_state_dict)
         
         print(f"Resumed from step {cfg.resume_step}")
     else:
@@ -784,7 +758,6 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
     # Training loop
     print("Setting models to train mode...")
     vla.train()
-    pose_head.train()
     print("Models set to train mode successfully!")
     
     print("Starting training loop...")
@@ -831,7 +804,6 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             
             loss, metrics = run_forward_pass(
                 vla=vla,
-                pose_head=pose_head,
                 batch=batch,
                 device_id=device_id,
                 cfg=cfg,
@@ -865,7 +837,6 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             if cfg.use_val_set and log_step % cfg.val_freq == 0:
                 run_validation(
                     vla=vla,
-                    pose_head=pose_head,
                     val_dataloader=val_dataloader,
                     device_id=device_id,
                     cfg=cfg,
@@ -884,7 +855,6 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
                     log_step=log_step,
                     vla=vla,
                     processor=processor,
-                    pose_head=pose_head,
                     train_dataset=train_dataset,
                     distributed_state=distributed_state,
                 )
@@ -902,7 +872,6 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             log_step=log_step,
             vla=vla,
             processor=processor,
-            pose_head=pose_head,
             train_dataset=train_dataset,
             distributed_state=distributed_state,
         )
