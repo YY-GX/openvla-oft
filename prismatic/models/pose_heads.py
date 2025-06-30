@@ -181,7 +181,7 @@ class GMMPoseHead(nn.Module):
                 dist = torch.distributions.MultivariateNormal(mean, cov)
                 print(f"                - [GMMPoseHead.compute_loss] Computing log probability...")
                 log_prob = dist.log_prob(target)
-                print(f"                - [GMMPoseHead.compute_loss] Log probability computed: {log_prob.item()}")
+                print(f"                - [GMMPoseHead.compute_loss] Log probability shape: {log_prob.shape}")
                 # Convert back to bfloat16
                 log_prob = ensure_bfloat16(log_prob)
                 batch_log_probs.append(log_prob)
@@ -204,7 +204,7 @@ class GMMPoseHead(nn.Module):
         # Return negative log-likelihood (loss)
         print("          - [GMMPoseHead.compute_loss] Computing final loss...")
         loss = -total_log_prob.mean()
-        print(f"          - [GMMPoseHead.compute_loss] Final loss: {loss.item()}")
+        print(f"          - [GMMPoseHead.compute_loss] Final loss shape: {loss.shape}")
         
         return loss
 
