@@ -225,24 +225,31 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Dictionary with LLM inputs
         """
+        print("          - [PoseVLM._prepare_llm_inputs] Starting...")
         batch_size = text.shape[0]
+        print(f"          - [PoseVLM._prepare_llm_inputs] Batch size: {batch_size}")
         
         # Create pose tokens if not provided (for inference)
+        print("          - [PoseVLM._prepare_llm_inputs] Creating pose tokens...")
         if pose_tokens is None:
             pose_tokens = torch.zeros(
                 batch_size, self.num_pose_tokens,
                 device=text.device, dtype=text.dtype
             )
+        print(f"          - [PoseVLM._prepare_llm_inputs] Pose tokens shape: {pose_tokens.shape}")
         
         # Prepare input sequence: [text, image_features, pose_tokens]
+        print("          - [PoseVLM._prepare_llm_inputs] Preparing input sequence...")
         input_ids = []
         attention_mask = []
         
         # Add text
+        print("          - [PoseVLM._prepare_llm_inputs] Adding text...")
         input_ids.append(text)
         attention_mask.append(text_attention_mask)
         
         # Add image features (as special tokens)
+        print(f"          - [PoseVLM._prepare_llm_inputs] Adding {projected_image_features.shape[1]} image features...")
         for i in range(projected_image_features.shape[1]):
             # Create placeholder tokens for image features
             img_tokens = torch.full(
@@ -254,6 +261,7 @@ class PoseVLM(PrismaticVLM):
             attention_mask.append(torch.ones_like(img_tokens))
         
         # Add pose tokens
+        print("          - [PoseVLM._prepare_llm_inputs] Adding pose tokens...")
         pose_token_ids = torch.full(
             (batch_size, self.num_pose_tokens),
             self.llm_backbone.config.pad_token_id,
@@ -263,15 +271,20 @@ class PoseVLM(PrismaticVLM):
         attention_mask.append(torch.ones_like(pose_token_ids))
         
         # Concatenate all inputs
+        print("          - [PoseVLM._prepare_llm_inputs] Concatenating inputs...")
         input_ids = torch.cat(input_ids, dim=1)
         attention_mask = torch.cat(attention_mask, dim=1)
+        print(f"          - [PoseVLM._prepare_llm_inputs] Final input_ids shape: {input_ids.shape}")
+        print(f"          - [PoseVLM._prepare_llm_inputs] Final attention_mask shape: {attention_mask.shape}")
         
         # Prepare inputs for LLM
+        print("          - [PoseVLM._prepare_llm_inputs] Preparing LLM inputs dict...")
         llm_inputs = {
             'input_ids': input_ids,
             'attention_mask': attention_mask,
         }
         
+        print("          - [PoseVLM._prepare_llm_inputs] LLM inputs prepared successfully!")
         return llm_inputs
     
     def _extract_pose_hidden_states(

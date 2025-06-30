@@ -717,8 +717,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
         batch_size=cfg.batch_size,
         shuffle=True,
         collate_fn=train_collator,
-        num_workers=0,  # Reduce workers to avoid hanging
-        pin_memory=False,  # Disable pin_memory to avoid issues
+        num_workers=8,  # Increased from 0 to 8 to utilize more CPU cores
+        pin_memory=True,  # Re-enabled pin_memory for better GPU transfer
     )
     print("Train dataloader created successfully!")
     
@@ -735,8 +735,8 @@ def finetune_pose(cfg: PoseFinetuneConfig) -> None:
             batch_size=cfg.batch_size,
             shuffle=False,
             collate_fn=val_collator,
-            num_workers=0,  # Reduce workers to avoid hanging
-            pin_memory=False,  # Disable pin_memory to avoid issues
+            num_workers=4,  # Increased from 0 to 4 for validation
+            pin_memory=True,  # Re-enabled pin_memory for better GPU transfer
         )
         print("Validation dataloader created successfully!")
     
