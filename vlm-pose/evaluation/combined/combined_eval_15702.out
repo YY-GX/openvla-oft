@@ -1,0 +1,17 @@
+Using LIBERO constants:
+  NUM_ACTIONS_CHUNK = 8
+  ACTION_DIM = 7
+  PROPRIO_DIM = 8
+  ACTION_PROPRIO_NORMALIZATION_TYPE = bounds_q99
+If needed, manually set the correct constants in `prismatic/vla/constants.py`!
+07/28 [23:45:51] WARNING  | >> No private macro file found!         macros.py:53
+                 WARNING  | >> It is recommended to use a private   macros.py:54
+                          macro file                                            
+                 WARNING  | >> To setup, run: python                macros.py:55
+                          /mnt/arc/yygx/.conda/envs/openvla-oft/lib             
+                          /python3.10/site-packages/robosuite/scrip             
+                          ts/setup_macros.py                                    
+07/28 [23:45:52] INFO     | >> No OpenGL_accelerate      acceleratesupport.py:24
+                          module loaded: No module named                        
+                          'OpenGL_accelerate'                                   
+Job completed!

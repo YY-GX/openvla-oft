@@ -16,7 +16,7 @@ sbatch \
   --gpus=$GPUS \
   -o "$LOG_DIR/$LOG_FILE" \
   -J $JOB_NAME \
-  --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune_pose.py \
+  --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vlm-pose/training/finetune_pose.py \
     --num_images_in_input 1 \
     --resume False \
     --vla_path 'openvla/openvla-7b' \

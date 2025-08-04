@@ -157,3 +157,15 @@ wandb/
 logs/
 
 imgs/
+
+externals/tracikpy
+# Large data folders
+runs/
+datasets/
+rollouts/
+wandb/
+logs/
+*.pt
+debug_inits_imgs/
+imgs/
+outs/

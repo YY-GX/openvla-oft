@@ -1,0 +1,31 @@
+/var/lib/slurm/slurmd/job15702/slurm_script: line 14: module: command not found
+/var/lib/slurm/slurmd/job15702/slurm_script: line 15: module: command not found
+/var/lib/slurm/slurmd/job15702/slurm_script: line 18: activate: No such file or directory
+2025-07-28 23:45:33.534900: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-07-28 23:45:33.916105: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1753760734.058277  503405 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1753760734.121498  503405 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-07-28 23:45:34.484856: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+W0000 00:00:1753760743.235706  503405 gpu_device.cc:2344] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+[robosuite WARNING] No private macro file found! (macros.py:53)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:54)
+[robosuite WARNING] To setup, run: python /mnt/arc/yygx/.conda/envs/openvla-oft/lib/python3.10/site-packages/robosuite/scripts/setup_macros.py (macros.py:55)
+Traceback (most recent call last):
+  File "/mnt/arc/yygx/pkgs_baselines/openvla-oft/vla-evaluation/combined_eval/run_with_setup.py", line 17, in <module>
+    from test_combined_pipeline import test_single_task
+  File "/mnt/arc/yygx/pkgs_baselines/openvla-oft/vla-evaluation/combined_eval/test_combined_pipeline.py", line 17, in <module>
+    from run_combined_eval import CombinedEvaluator
+  File "/mnt/arc/yygx/pkgs_baselines/openvla-oft/vla-evaluation/combined_eval/run_combined_eval.py", line 48, in <module>
+    from tracik_tools import solve_ik, pose6d_to_matrix
+  File "/mnt/arc/yygx/pkgs_baselines/openvla-oft/vla-evaluation/combined_eval/../shared/tracik_tools.py", line 2, in <module>
+    from tracikpy import TracIKSolver
+  File "/mnt/arc/yygx/.conda/envs/openvla-oft/lib/python3.10/site-packages/tracikpy/__init__.py", line 1, in <module>
+    from .trac_ik_solver import TracIKSolver
+  File "/mnt/arc/yygx/.conda/envs/openvla-oft/lib/python3.10/site-packages/tracikpy/trac_ik_solver.py", line 9, in <module>
+    from .swig.trac_ik_wrap import TRAC_IK
+  File "/mnt/arc/yygx/.conda/envs/openvla-oft/lib/python3.10/site-packages/tracikpy/swig/trac_ik_wrap.py", line 13, in <module>
+    from . import _trac_ik_wrap
+ImportError: liborocos-kdl.so.1.5: cannot open shared object file: No such file or directory

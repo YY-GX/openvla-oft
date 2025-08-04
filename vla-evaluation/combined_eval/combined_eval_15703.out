@@ -1,0 +1,74 @@
+Retrieving notices: ...working... done
+Collecting package metadata (current_repodata.json): ...working... done
+Solving environment: ...working... done
+
+## Package Plan ##
+
+  environment location: /mnt/arc/yygx/.conda/envs/openvla-oft
+
+  added / updated specs:
+    - orocos-kdl
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    eigen-3.4.0                |       h4bd325d_0         1.2 MB  conda-forge
+    libstdcxx-ng-11.2.0        |       h1234567_1         4.7 MB
+    orocos-kdl-1.5.1           |       h122e73d_2         394 KB  conda-forge
+    python_abi-3.10            |          6_cp310           7 KB  conda-forge
+    ------------------------------------------------------------
+                                           Total:         6.3 MB
+
+The following NEW packages will be INSTALLED:
+
+  eigen              conda-forge/linux-64::eigen-3.4.0-h4bd325d_0 
+  libstdcxx-ng       pkgs/main/linux-64::libstdcxx-ng-11.2.0-h1234567_1 
+  orocos-kdl         conda-forge/linux-64::orocos-kdl-1.5.1-h122e73d_2 
+  python_abi         conda-forge/linux-64::python_abi-3.10-6_cp310 
+
+The following packages will be UPDATED:
+
+  ca-certificates    conda-forge/linux-64::ca-certificates~ --> conda-forge/noarch::ca-certificates-2025.7.14-hbd8a1cb_0 
+  openssl                                  3.4.1-h7b32b05_0 --> 3.5.1-h7b32b05_0 
+
+
+
+Downloading and Extracting Packages
+libstdcxx-ng-11.2.0  | 4.7 MB    |            |   0% 
+python_abi-3.10      | 7 KB      |            |   0% [A
+
+eigen-3.4.0          | 1.2 MB    |            |   0% [A[A
+
+
+orocos-kdl-1.5.1     | 394 KB    |            |   0% [A[A[Alibstdcxx-ng-11.2.0  | 4.7 MB    |            |   0% 
+
+
+orocos-kdl-1.5.1     | 394 KB    | 4          |   4% [A[A[A
+python_abi-3.10      | 7 KB      | ########## | 100% [A
+
+eigen-3.4.0          | 1.2 MB    | 1          |   1% [A[Alibstdcxx-ng-11.2.0  | 4.7 MB    | 8          |   8% 
+
+
+orocos-kdl-1.5.1     | 394 KB    | ########## | 100% [A[A[A
+
+eigen-3.4.0          | 1.2 MB    | ###1       |  31% [A[Alibstdcxx-ng-11.2.0  | 4.7 MB    | ####4      |  45% 
+python_abi-3.10      | 7 KB      | ########## | 100% [A
+
+
+orocos-kdl-1.5.1     | 394 KB    | ########## | 100% [A[A[A
+
+eigen-3.4.0          | 1.2 MB    | ########## | 100% [A[A
+
+eigen-3.4.0          | 1.2 MB    | ########## | 100% [A[Alibstdcxx-ng-11.2.0  | 4.7 MB    | ########## | 100% libstdcxx-ng-11.2.0  | 4.7 MB    | ########## | 100%                                                      
+                                                     [A
+
+                                                     [A[A
+
+
+                                                     [A[A[A
+Preparing transaction: ...working... done
+Verifying transaction: ...working... done
+Executing transaction: ...working... done
+Job completed!

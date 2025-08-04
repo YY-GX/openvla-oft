@@ -1,0 +1,57 @@
+# Combined PoseVLM + OpenVLA-OFT Evaluation Configuration
+
+# Model checkpoints
+pose_vlm_checkpoint: "runs/pose_vlm/1.0.0/openvla-7b+pose_dataset+b8+lr-0.0005+pose_gmm_c3+lora-r32+dropout-0.0--image_aug--pose_aug--gmm_pose_head--3_components--pose_aug/vla--90000_checkpoint.pt"
+openvla_checkpoint: "runs/view_wrist/1.0.3/openvla-7b+libero44_local+b8+lr-0.0005+lora-r32+dropout-0.0--image_aug--parallel_dec--8_acts_chunk--continuous_acts--L1_regression--wrist_img--proprio_state--50000_chkpt"
+
+# LIBERO task suite
+task_suite_name: "boss_44"
+use_pose_vlm_smaller_split_tasks_only: false
+
+# Evaluation parameters
+num_episodes_per_task: 20
+max_ik_attempts: 5
+seed: 42
+
+# Debug settings
+save_debug_images: true
+debug_image_dir: "runs/eval_results/combined_eval/debug_images"
+
+# Device settings
+device: "cuda"
+
+# PoseVLM specific settings
+pose_vlm:
+  pose_head_type: "gmm"
+  gmm_num_components: 3
+  pose_dim: 6
+  num_pose_tokens: 6
+  num_images_in_input: 1
+  max_length: 512
+
+# OpenVLA specific settings
+openvla:
+  wrist_only: true
+  agent_only: false
+  num_open_loop_steps: 8
+  use_proprio: true
+  center_crop: true
+  model_family: "openvla"
+
+# IK settings
+ik:
+  pose_offset: [0.667, 0.0, -0.81, 0.0, 0.0, 0.0]  # Same as in visualize_vlm_pose_predictions.py
+  max_iterations: 100
+  tolerance: 1e-4
+
+# LIBERO environment settings
+libero:
+  env_img_res: 256
+  num_steps_wait: 10
+  max_steps: 400
+
+# Output settings
+output:
+  results_dir: "runs/eval_results/combined_eval"
+  save_episode_videos: false
+  save_episode_logs: true 

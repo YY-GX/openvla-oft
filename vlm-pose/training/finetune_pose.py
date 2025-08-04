@@ -4,6 +4,9 @@ finetune_pose.py
 Fine-tunes PoseVLM for pose prediction from vision and language inputs.
 """
 
+import sys
+sys.path.append('../..')
+
 import os
 import time
 from collections import deque

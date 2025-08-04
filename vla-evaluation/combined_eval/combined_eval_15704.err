@@ -1,0 +1,31 @@
+/mnt/arc/yygx/anaconda3/bin/python: /mnt/arc/yygx/anaconda3/bin/../lib/./libtinfow.so.6: no version information available (required by /mnt/arc/yygx/anaconda3/bin/../lib/libpypy3-c.so)
+/mnt/arc/yygx/anaconda3/bin/python: /mnt/arc/yygx/anaconda3/bin/../lib/./libtinfow.so.6: no version information available (required by /mnt/arc/yygx/anaconda3/bin/../lib/libpypy3-c.so)
+Could not load conda plugin `conda-libmamba-solver`:
+
+No module named 'libmambapy.bindings'
+Could not load conda plugin `anaconda-cloud-auth`:
+
+cannot import name 'ChannelAuthBase' from 'conda.plugins.types' (/mnt/arc/yygx/anaconda3/lib/pypy3.8/site-packages/conda/plugins/types.py)
+/mnt/arc/yygx/anaconda3/bin/python: /mnt/arc/yygx/anaconda3/bin/../lib/./libtinfow.so.6: no version information available (required by /mnt/arc/yygx/anaconda3/bin/../lib/libpypy3-c.so)
+/mnt/arc/yygx/anaconda3/bin/python: /mnt/arc/yygx/anaconda3/bin/../lib/./libtinfow.so.6: no version information available (required by /mnt/arc/yygx/anaconda3/bin/../lib/libpypy3-c.so)
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 23.5.2
+  latest version: 25.5.1
+
+Please update conda by running
+
+    $ conda update -n base -c conda-forge conda
+
+Or to minimize the number of packages updated during conda update use
+
+     conda install conda=25.5.1
+
+
+/mnt/arc/yygx/anaconda3/bin/python: /mnt/arc/yygx/anaconda3/bin/../lib/./libtinfow.so.6: no version information available (required by /mnt/arc/yygx/anaconda3/bin/../lib/libpypy3-c.so)
+python: /mnt/arc/yygx/anaconda3/bin/../lib/./libtinfow.so.6: no version information available (required by /mnt/arc/yygx/anaconda3/bin/../lib/libpypy3-c.so)
+Traceback (most recent call last):
+  File "test_combined_pipeline.py", line 11, in <module>
+    import torch
+ModuleNotFoundError: No module named 'torch'

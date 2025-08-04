@@ -488,7 +488,6 @@ def get_action_head(cfg: Any, llm_dim: int) -> Union[L1RegressionActionHead, Dif
         raise ValueError("Either use_l1_regression or use_diffusion must be True")
 
     action_head = action_head.to(torch.bfloat16).to(DEVICE)
-    action_head = ensure_bfloat16(action_head).to(DEVICE)
     action_head.eval()
 
     # Find and load checkpoint (may be on Hugging Face Hub or stored locally)

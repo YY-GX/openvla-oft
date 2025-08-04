@@ -11,12 +11,12 @@ export TORCH_DISTRIBUTED_DEBUG=DETAIL
 export TORCH_SHOW_CPP_STACKTRACES=1
 
 sbatch \
-  --nodelist=arcee.ib \
+  --nodelist=mirage.ib \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
   -o "$LOG_DIR/$LOG_FILE" \
   -J $JOB_NAME \
-  --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vla-scripts/finetune_pose.py \
+  --wrap="torchrun --standalone --nnodes 1 --nproc-per-node 8 vlm-pose/training/finetune_pose.py \
     --num_images_in_input 1 \
     --resume False \
     --vla_path 'openvla/openvla-7b' \
@@ -24,10 +24,8 @@ sbatch \
     --splits_folder smaller_splits \
     --dataset_name pose_dataset \
     --run_root_dir runs/pose_vlm/1.0.0 \
-    --pose_head_type gmm \
-    --gmm_num_components 6 \
-    --gmm_entropy_weight 0.1 \
-    --gmm_min_epsilon 1e-2 \
+    --pose_head_type simple \
+    --gmm_num_components 3 \
     --pose_dim 6 \
     --num_pose_tokens 6 \
     --use_film False \
@@ -46,7 +44,7 @@ sbatch \
     --lora_rank 32 \
     --wandb_entity 'yygx' \
     --wandb_project 'openvla-oft-pose' \
-    --run_id_note 'gmm_pose_head--6_components--entropy_reg--variance_reg' \
+    --run_id_note 'simple_pose_head_pose_aug' \
     --use_val_set True \
     --val_freq 5000 \
     --val_time_limit 180" 
