@@ -1,0 +1,27 @@
+I have this robotics codebase with two core components: VLA (Vision-Language-Action) for robot action prediction and VLM (Vision-Language-Model) for pose prediction. The VLA components are well-structured and don't need changes. I need to reorganize the VLM pose prediction components.
+
+Current VLM structure issues:
+- VLM training scripts are in vla-scripts/ (mixed with VLA scripts)
+- VLM evaluation scripts are scattered between vla-scripts/ and utils/
+- VLM data preparation scripts are all in utils/ (mixed with other utilities)
+- VLM visualization scripts are in utils/ (mixed with other utilities)
+- No clear separation between VLM training, evaluation, data preparation, and visualization
+- Missing comprehensive README files for VLM components
+
+VLM components that need reorganization:
+1. **VLM Training**: finetune_pose.py, train_pose_vlm*.sh scripts
+2. **VLM Evaluation**: evaluate_pose_vlm_*.py scripts (demo/skill/object-aware)
+3. **VLM Data Preparation**: extract_local_pairs.py, split_pose_data.py, create_hungarian_dataset.py, extract_target_object_poses.py, analyze_pose_statistics.py, compute_target_object_diversity.py
+4. **VLM Visualization**: visualize_vlm_pose_predictions.py, visualize_skill_pose_diversity.py
+5. **VLM Utilities**: tracik_tools.py, debug_ik_pipeline.py, test_pose_normalization.py, generate_sample_indices.py, debug_pose_evaluation.py
+6. **VLA + VLM combined evaluation**: files inside vla-evaluation/combined_eval, the main script is vla-evaluation/combined_eval/run_combined_eval.py
+
+Please help me reorganize the VLM components into a clean, logical structure with:
+1. Clear directory hierarchy for VLM components only, keep all VLA part untouched
+2. Proper README files for each VLM major component
+3. Consistent naming conventions for VLM scripts
+4. Logical grouping of related VLM functionality
+5. Clear separation of VLM training, evaluation, data preparation, and visualization
+6. Easy-to-follow VLM pipeline documentation, with commands examples for each step in it
+
+The reorganized structure should make it easy for new users to understand and use the VLM pose prediction components while leaving the VLA components unchanged.

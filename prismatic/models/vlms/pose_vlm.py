@@ -13,7 +13,7 @@ import logging
 from prismatic.models.vlms.prismatic import PrismaticVLM
 from prismatic.models.backbones.vision import VisionBackbone
 from prismatic.models.backbones.llm import LLMBackbone
-from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead
+from prismatic.models.pose_heads import GMMPoseHead, SimplePoseHead, HungarianPoseHead
 from prismatic.util import ensure_bfloat16
 
 
@@ -36,10 +36,13 @@ class PoseVLM(PrismaticVLM):
         model_id: str,
         vision_backbone: VisionBackbone,
         llm_backbone: LLMBackbone,
-        pose_head_type: str = "gmm",  # "gmm" or "simple"
+        pose_head_type: str = "gmm",  # "gmm", "simple", or "hungarian"
         pose_dim: int = 6,  # 3D position + 3D orientation
         num_pose_tokens: int = 6,  # Number of pose tokens (same as original action tokens)
-        gmm_num_components: int = 3,  # For GMM pose head (reduced from 5 to 3)
+        gmm_num_components: int = 6,  # For GMM pose head (increased from 3 to 6)
+        gmm_entropy_weight: float = 0.1,  # Weight for GMM entropy regularization
+        gmm_min_epsilon: float = 1e-2,  # Minimum variance for GMM components
+        hungarian_weight: float = 0.1,  # Weight for Hungarian matching loss
         enable_mixed_precision_training: bool = True,
         arch_specifier: str = "gelu-mlp",
         **kwargs
@@ -51,10 +54,13 @@ class PoseVLM(PrismaticVLM):
             model_id: Model identifier
             vision_backbone: Vision backbone for image processing
             llm_backbone: Language model backbone
-            pose_head_type: Type of pose head ("gmm" or "simple")
+            pose_head_type: Type of pose head ("gmm", "simple", or "hungarian")
             pose_dim: Dimension of pose (6 for 3D pos + 3D ori)
             num_pose_tokens: Number of pose tokens
             gmm_num_components: Number of GMM components
+            gmm_entropy_weight: Weight for GMM entropy regularization
+            gmm_min_epsilon: Minimum variance for GMM components
+            hungarian_weight: Weight for Hungarian matching loss
             enable_mixed_precision_training: Whether to enable mixed precision
             arch_specifier: Architecture specifier for projector
             **kwargs: Additional arguments passed to PrismaticVLM
@@ -73,6 +79,9 @@ class PoseVLM(PrismaticVLM):
         self.pose_dim = pose_dim
         self.num_pose_tokens = num_pose_tokens
         self.gmm_num_components = gmm_num_components
+        self.gmm_entropy_weight = gmm_entropy_weight
+        self.gmm_min_epsilon = gmm_min_epsilon
+        self.hungarian_weight = hungarian_weight
         
         # Replace action head with pose head
         self._setup_pose_head()
@@ -95,12 +104,22 @@ class PoseVLM(PrismaticVLM):
                 hidden_dim=hidden_dim,
                 pose_dim=self.pose_dim,
                 num_components=self.gmm_num_components,
+                min_epsilon=self.gmm_min_epsilon,
+                entropy_weight=self.gmm_entropy_weight,
             )
         elif self.pose_head_type == "simple":
             self.pose_head = SimplePoseHead(
                 input_dim=hidden_dim,
                 hidden_dim=hidden_dim,
                 pose_dim=self.pose_dim,
+            )
+        elif self.pose_head_type == "hungarian":
+            self.pose_head = HungarianPoseHead(
+                input_dim=hidden_dim,
+                hidden_dim=hidden_dim,
+                pose_dim=self.pose_dim,
+                num_poses=6,  # Match number of GT poses
+                hungarian_weight=self.hungarian_weight,
             )
         else:
             raise ValueError(f"Unknown pose head type: {self.pose_head_type}")
@@ -133,55 +152,38 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Dictionary with model outputs
         """
-        print("        - [PoseVLM.forward] Starting forward pass...")
-        
         # Ensure images are in bfloat16
-        print("        - [PoseVLM.forward] Ensuring images are bfloat16...")
         images = ensure_bfloat16(images)
         
         batch_size = images.shape[0]
-        print(f"        - [PoseVLM.forward] Batch size: {batch_size}")
         
         # Process images through vision backbone
-        print("        - [PoseVLM.forward] Processing images through vision backbone...")
         image_features = self.vision_backbone(images)  # (batch_size, num_images, hidden_dim)
-        print(f"        - [PoseVLM.forward] Image features shape: {image_features.shape}")
         
         # Project image features
-        print("        - [PoseVLM.forward] Projecting image features...")
         projected_image_features = self.projector(image_features)  # (batch_size, num_images, llm_hidden_dim)
-        print(f"        - [PoseVLM.forward] Projected features shape: {projected_image_features.shape}")
         
         # Prepare LLM inputs
-        print("        - [PoseVLM.forward] Preparing LLM inputs...")
         llm_inputs = self._prepare_llm_inputs(
             text=text,
             text_attention_mask=text_attention_mask,
             projected_image_features=projected_image_features,
             pose_tokens=pose_tokens,
         )
-        print("        - [PoseVLM.forward] LLM inputs prepared")
         
         # Forward through LLM
-        print("        - [PoseVLM.forward] Forwarding through LLM...")
         llm_outputs = self.llm_backbone(**llm_inputs, output_hidden_states=True)
-        print("        - [PoseVLM.forward] LLM forward completed")
         
         # Check if hidden_states is available
         if llm_outputs.hidden_states is None:
-            print("        - [PoseVLM.forward] WARNING: hidden_states is None, using last_hidden_state")
             hidden_states = llm_outputs.last_hidden_state
         else:
             hidden_states = llm_outputs.hidden_states[-1]  # Use last layer
-        print(f"        - [PoseVLM.forward] Hidden states shape: {hidden_states.shape}")
         
         # Extract pose token hidden states
-        print("        - [PoseVLM.forward] Extracting pose token hidden states...")
         pose_hidden_states = self._extract_pose_hidden_states(hidden_states, llm_inputs['attention_mask'])
-        print(f"        - [PoseVLM.forward] Pose hidden states shape: {pose_hidden_states.shape}")
         
         # Predict poses
-        print("        - [PoseVLM.forward] Predicting poses...")
         if self.pose_head_type == "gmm":
             means, covariances, weights = self.pose_head(pose_hidden_states)
             pose_outputs = {
@@ -194,17 +196,13 @@ class PoseVLM(PrismaticVLM):
             pose_outputs = {
                 'predicted_poses': predicted_poses,
             }
-        print("        - [PoseVLM.forward] Pose prediction completed")
         
         # Prepare output
-        print("        - [PoseVLM.forward] Preparing output...")
         outputs = {
             'pose_outputs': pose_outputs,
             'hidden_states': hidden_states,
             'llm_outputs': llm_outputs,
         }
-        
-        print("        - [PoseVLM.forward] Forward pass completed successfully!")
         
         if return_dict:
             return outputs
@@ -230,31 +228,24 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Dictionary with LLM inputs
         """
-        print("          - [PoseVLM._prepare_llm_inputs] Starting...")
         batch_size = text.shape[0]
-        print(f"          - [PoseVLM._prepare_llm_inputs] Batch size: {batch_size}")
         
         # Create pose tokens if not provided (for inference)
-        print("          - [PoseVLM._prepare_llm_inputs] Creating pose tokens...")
         if pose_tokens is None:
             pose_tokens = torch.zeros(
                 batch_size, self.num_pose_tokens,
                 device=text.device, dtype=text.dtype
             )
-        print(f"          - [PoseVLM._prepare_llm_inputs] Pose tokens shape: {pose_tokens.shape}")
         
         # Prepare input sequence: [text, image_features, pose_tokens]
-        print("          - [PoseVLM._prepare_llm_inputs] Preparing input sequence...")
         input_ids = []
         attention_mask = []
         
         # Add text
-        print("          - [PoseVLM._prepare_llm_inputs] Adding text...")
         input_ids.append(text)
         attention_mask.append(text_attention_mask)
         
         # Add image features (as special tokens)
-        print(f"          - [PoseVLM._prepare_llm_inputs] Adding {projected_image_features.shape[1]} image features...")
         for i in range(projected_image_features.shape[1]):
             # Create placeholder tokens for image features
             img_tokens = torch.full(
@@ -266,7 +257,6 @@ class PoseVLM(PrismaticVLM):
             attention_mask.append(torch.ones_like(img_tokens))
         
         # Add pose tokens
-        print("          - [PoseVLM._prepare_llm_inputs] Adding pose tokens...")
         pose_token_ids = torch.full(
             (batch_size, self.num_pose_tokens),
             self.llm_backbone.config.pad_token_id,
@@ -276,20 +266,15 @@ class PoseVLM(PrismaticVLM):
         attention_mask.append(torch.ones_like(pose_token_ids))
         
         # Concatenate all inputs
-        print("          - [PoseVLM._prepare_llm_inputs] Concatenating inputs...")
         input_ids = torch.cat(input_ids, dim=1)
         attention_mask = torch.cat(attention_mask, dim=1)
-        print(f"          - [PoseVLM._prepare_llm_inputs] Final input_ids shape: {input_ids.shape}")
-        print(f"          - [PoseVLM._prepare_llm_inputs] Final attention_mask shape: {attention_mask.shape}")
         
         # Prepare inputs for LLM
-        print("          - [PoseVLM._prepare_llm_inputs] Preparing LLM inputs dict...")
         llm_inputs = {
             'input_ids': input_ids,
             'attention_mask': attention_mask,
         }
         
-        print("          - [PoseVLM._prepare_llm_inputs] LLM inputs prepared successfully!")
         return llm_inputs
     
     def _extract_pose_hidden_states(
@@ -379,38 +364,28 @@ class PoseVLM(PrismaticVLM):
         Returns:
             Loss value
         """
-        print("      - [PoseVLM.compute_loss] Starting...")
-        
         # Ensure all inputs are in bfloat16 to prevent dtype mismatches
-        print("      - [PoseVLM.compute_loss] Ensuring bfloat16 dtype...")
         images = ensure_bfloat16(images)
         text = text  # Keep as is (should be long/int)
         text_attention_mask = text_attention_mask  # Keep as is (should be long/int)
         target_poses = ensure_bfloat16(target_poses)
-        print("      - [PoseVLM.compute_loss] Dtype conversion completed")
         
         # Forward pass
-        print("      - [PoseVLM.compute_loss] Calling forward pass...")
         outputs = self.forward(
             images=images,
             text=text,
             text_attention_mask=text_attention_mask,
             pose_tokens=torch.zeros_like(target_poses),  # Dummy pose tokens
         )
-        print("      - [PoseVLM.compute_loss] Forward pass completed")
         
         # Extract pose hidden states
-        print("      - [PoseVLM.compute_loss] Extracting pose hidden states...")
         pose_hidden_states = self._extract_pose_hidden_states(
             outputs['hidden_states'],
             torch.ones(images.shape[0], outputs['hidden_states'].shape[1], device=images.device)
         )
-        print("      - [PoseVLM.compute_loss] Pose hidden states extracted")
         
         # Compute loss
-        print("      - [PoseVLM.compute_loss] Computing loss with pose head...")
         loss = self.pose_head.compute_loss(pose_hidden_states, target_poses)
-        print("      - [PoseVLM.compute_loss] Loss computation completed")
         
         return loss
     

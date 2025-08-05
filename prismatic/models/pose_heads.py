@@ -26,9 +26,11 @@ class GMMPoseHead(nn.Module):
         input_dim: int = 4096,
         hidden_dim: int = 4096,
         pose_dim: int = 6,  # 3D position + 3D orientation
-        num_components: int = 3,
+        num_components: int = 6,  # Changed from 3 to 6
         min_std: float = 0.01,
         max_std: float = 1.0,
+        min_epsilon: float = 1e-2,  # Minimum variance to prevent collapse
+        entropy_weight: float = 0.1,  # Weight for entropy regularization
     ):
         """
         Initialize GMM pose head.
@@ -40,6 +42,8 @@ class GMMPoseHead(nn.Module):
             num_components: Number of GMM components
             min_std: Minimum standard deviation for numerical stability
             max_std: Maximum standard deviation
+            min_epsilon: Minimum variance to prevent component collapse
+            entropy_weight: Weight for entropy regularization
         """
         super().__init__()
         
@@ -49,6 +53,8 @@ class GMMPoseHead(nn.Module):
         self.num_components = num_components
         self.min_std = min_std
         self.max_std = max_std
+        self.min_epsilon = min_epsilon
+        self.entropy_weight = entropy_weight
         
         # Calculate output dimensions for GMM parameters
         # For each component: means (pose_dim) + diagonal covariances (pose_dim) + weight (1)
@@ -81,10 +87,18 @@ class GMMPoseHead(nn.Module):
         gmm_params = gmm_params.view(batch_size, num_pose_tokens, self.num_components, -1)
         means = ensure_bfloat16(gmm_params[..., :self.pose_dim])  # (batch, num_pose_tokens, num_components, pose_dim)
         cov_params = ensure_bfloat16(gmm_params[..., self.pose_dim:2*self.pose_dim])  # (batch, num_pose_tokens, num_components, pose_dim)
+        
+        # Apply variance regularization to prevent collapse
+        # Convert to variance and apply minimum threshold
+        variances = torch.exp(cov_params)
+        variances = torch.clamp(variances, min=self.min_epsilon)
+        cov_params = torch.log(variances)
+        
         # Diagonal covariance matrices
         covariances = torch.zeros(batch_size, num_pose_tokens, self.num_components, self.pose_dim, self.pose_dim, device=gmm_params.device, dtype=torch.bfloat16)
         diag_indices = torch.arange(self.pose_dim)
         covariances[..., diag_indices, diag_indices] = torch.exp(cov_params)
+        
         weights = ensure_bfloat16(gmm_params[..., -1])  # (batch, num_pose_tokens, num_components)
         weights = torch.softmax(weights, dim=-1)
         return means, covariances, weights
@@ -128,8 +142,14 @@ class GMMPoseHead(nn.Module):
                 mean = means[b, comp_idx]  # (pose_dim,)
                 cov = covariances[b, comp_idx]  # (pose_dim, pose_dim)
                 
+                # Convert to float32 for MultivariateNormal (Cholesky doesn't support bfloat16)
+                mean = mean.float()
+                cov = cov.float()
+                
                 # Sample from multivariate normal
                 sample = torch.distributions.MultivariateNormal(mean, cov).sample()
+                # Convert back to bfloat16
+                sample = ensure_bfloat16(sample)
                 batch_samples.append(sample)
             
             batch_samples = torch.stack(batch_samples)  # (num_samples, pose_dim)
@@ -139,7 +159,7 @@ class GMMPoseHead(nn.Module):
     
     def compute_loss(self, pose_hidden_states: torch.Tensor, target_poses: torch.Tensor) -> torch.Tensor:
         """
-        Compute negative log-likelihood loss for GMM.
+        Compute negative log-likelihood loss for GMM with entropy regularization.
         
         Args:
             pose_hidden_states: Hidden states from LLM for pose tokens (batch_size, num_pose_tokens, hidden_dim)
@@ -148,81 +168,59 @@ class GMMPoseHead(nn.Module):
         Returns:
             Loss value
         """
-        print("          - [GMMPoseHead.compute_loss] Starting...")
-        print(f"          - [GMMPoseHead.compute_loss] pose_hidden_states shape: {pose_hidden_states.shape}")
-        print(f"          - [GMMPoseHead.compute_loss] target_poses shape: {target_poses.shape}")
-        
         # Ensure all tensors are in bfloat16 to prevent dtype mismatches
-        print("          - [GMMPoseHead.compute_loss] Ensuring bfloat16 dtype...")
         pose_hidden_states = ensure_bfloat16(pose_hidden_states)
         target_poses = ensure_bfloat16(target_poses)
-        print("          - [GMMPoseHead.compute_loss] Dtype conversion completed")
         
-        print("          - [GMMPoseHead.compute_loss] Calling forward to get GMM parameters...")
         means, covariances, weights = self.forward(pose_hidden_states)
-        print(f"          - [GMMPoseHead.compute_loss] means shape: {means.shape}")
-        print(f"          - [GMMPoseHead.compute_loss] covariances shape: {covariances.shape}")
-        print(f"          - [GMMPoseHead.compute_loss] weights shape: {weights.shape}")
-        
         batch_size, num_pose_tokens = means.shape[:2]
-        print(f"          - [GMMPoseHead.compute_loss] Batch size: {batch_size}, num_pose_tokens: {num_pose_tokens}, num_components: {self.num_components}")
         
         # For now, let's use only the first pose token for loss computation
         # This is a simplified approach - we can extend to multiple tokens later
-        print("          - [GMMPoseHead.compute_loss] Using first pose token for loss computation...")
         means = means[:, 0, :, :]  # (batch_size, num_components, pose_dim)
         covariances = covariances[:, 0, :, :, :]  # (batch_size, num_components, pose_dim, pose_dim)
         weights = weights[:, 0, :]  # (batch_size, num_components)
         
-        print(f"          - [GMMPoseHead.compute_loss] After selection - means shape: {means.shape}")
-        print(f"          - [GMMPoseHead.compute_loss] After selection - covariances shape: {covariances.shape}")
-        print(f"          - [GMMPoseHead.compute_loss] After selection - weights shape: {weights.shape}")
-        
         # Compute log-likelihood for each component
-        print("          - [GMMPoseHead.compute_loss] Computing log-likelihood for each component...")
         log_probs = []
         for b in range(batch_size):
-            print(f"            - [GMMPoseHead.compute_loss] Processing batch item {b}...")
             batch_log_probs = []
             for c in range(self.num_components):
-                print(f"              - [GMMPoseHead.compute_loss] Processing component {c}...")
                 # Convert to float32 for MultivariateNormal (Cholesky doesn't support bfloat16)
                 mean = means[b, c].float()  # (pose_dim,)
                 cov = covariances[b, c].float()  # (pose_dim, pose_dim)
                 target = target_poses[b].float()  # (pose_dim,)
                 
                 # Compute log probability
-                print(f"                - [GMMPoseHead.compute_loss] Creating MultivariateNormal distribution...")
                 dist = torch.distributions.MultivariateNormal(mean, cov)
-                print(f"                - [GMMPoseHead.compute_loss] Computing log probability...")
                 log_prob = dist.log_prob(target)
-                print(f"                - [GMMPoseHead.compute_loss] Log probability shape: {log_prob.shape}")
                 # Convert back to bfloat16
                 log_prob = ensure_bfloat16(log_prob)
                 batch_log_probs.append(log_prob)
             
             batch_log_probs = torch.stack(batch_log_probs)  # (num_components,)
             log_probs.append(batch_log_probs)
-            print(f"            - [GMMPoseHead.compute_loss] Batch item {b} completed")
         
         log_probs = torch.stack(log_probs)  # (batch_size, num_components)
-        print(f"          - [GMMPoseHead.compute_loss] Log probabilities shape: {log_probs.shape}")
         
         # Compute weighted log-likelihood
-        print("          - [GMMPoseHead.compute_loss] Computing weighted log-likelihood...")
-        print(f"          - [GMMPoseHead.compute_loss] weights shape: {weights.shape}")
         weighted_log_probs = log_probs + torch.log(ensure_bfloat16(weights) + 1e-8)
         
         # Use logsumexp for numerical stability
-        print("          - [GMMPoseHead.compute_loss] Computing logsumexp...")
         total_log_prob = torch.logsumexp(weighted_log_probs, dim=-1)
         
-        # Return negative log-likelihood (loss)
-        print("          - [GMMPoseHead.compute_loss] Computing final loss...")
-        loss = -total_log_prob.mean()
-        print(f"          - [GMMPoseHead.compute_loss] Final loss shape: {loss.shape}")
+        # Negative log-likelihood loss
+        nll_loss = -total_log_prob.mean()
         
-        return loss
+        # Entropy regularization to encourage component diversity
+        # Compute entropy of component weights: -sum(w * log(w))
+        entropy = -torch.sum(weights * torch.log(weights + 1e-8), dim=-1).mean()
+        entropy_loss = -self.entropy_weight * entropy  # Negative because we want to maximize entropy
+        
+        # Total loss
+        total_loss = nll_loss + entropy_loss
+        
+        return total_loss
 
 
 class SimplePoseHead(nn.Module):
@@ -313,3 +311,135 @@ class SimplePoseHead(nn.Module):
         
         predicted_poses = self.forward(pose_hidden_states)
         return F.l1_loss(predicted_poses, target_poses) 
+
+
+class HungarianPoseHead(nn.Module):
+    """
+    Hungarian pose head for direct multi-pose prediction with Hungarian matching.
+    
+    Predicts N deterministic poses and uses Hungarian algorithm to match with GT poses.
+    """
+    
+    def __init__(
+        self,
+        input_dim: int = 4096,
+        hidden_dim: int = 4096,
+        pose_dim: int = 6,
+        num_poses: int = 6,  # Number of poses to predict
+        hungarian_weight: float = 0.1,  # Weight for Hungarian matching loss
+    ):
+        """
+        Initialize Hungarian pose head.
+        
+        Args:
+            input_dim: Input dimension from LLM hidden states
+            hidden_dim: Hidden dimension for MLP
+            pose_dim: Dimension of pose (6 for 3D pos + 3D ori)
+            num_poses: Number of poses to predict
+            hungarian_weight: Weight for Hungarian matching loss
+        """
+        super().__init__()
+        
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.pose_dim = pose_dim
+        self.num_poses = num_poses
+        self.hungarian_weight = hungarian_weight
+        
+        # MLP to predict multiple poses
+        self.mlp = MLPResNet(
+            num_blocks=2,
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=num_poses * pose_dim
+        )
+        
+        # Convert MLP to bfloat16 to match input dtype
+        self.mlp = self.mlp.to(torch.bfloat16)
+    
+    def forward(self, pose_hidden_states: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass to predict multiple poses.
+        
+        Args:
+            pose_hidden_states: Hidden states from LLM for pose tokens
+                               Shape: (batch_size, num_pose_tokens, hidden_dim)
+        
+        Returns:
+            Predicted poses: (batch_size, num_poses, pose_dim)
+        """
+        # Ensure input is in bfloat16
+        pose_hidden_states = ensure_bfloat16(pose_hidden_states)
+        
+        batch_size, num_pose_tokens, hidden_dim = pose_hidden_states.shape
+        
+        # Use first pose token for prediction (can be extended to multiple tokens)
+        hidden_states = pose_hidden_states[:, 0, :]  # (batch_size, hidden_dim)
+        
+        # Predict poses (MLP is already in bfloat16)
+        poses_flat = self.mlp(hidden_states)  # (batch_size, num_poses * pose_dim)
+        poses = poses_flat.view(batch_size, self.num_poses, self.pose_dim)  # (batch_size, num_poses, pose_dim)
+        
+        return ensure_bfloat16(poses)
+    
+    def hungarian_matching_loss(self, predicted_poses: torch.Tensor, target_poses: torch.Tensor) -> torch.Tensor:
+        """
+        Compute Hungarian matching loss between predicted and target poses.
+        
+        Args:
+            predicted_poses: (batch_size, num_poses, pose_dim)
+            target_poses: (batch_size, num_poses, pose_dim)
+        
+        Returns:
+            Hungarian matching loss
+        """
+        batch_size = predicted_poses.shape[0]
+
+        # Ensure tensors are on the same device
+        device = predicted_poses.device
+        target_poses = target_poses.to(device)
+
+        # Convert to float32 for distance computation (cdist doesn't support bfloat16)
+        predicted_poses_float = predicted_poses.float()
+        target_poses_float = target_poses.float()
+
+        # We want to compute distances between each predicted pose and each target pose
+        # Reshape for broadcasting: (batch_size, num_poses, 1, pose_dim) vs (batch_size, 1, num_poses, pose_dim)
+        predicted_expanded = predicted_poses_float.unsqueeze(2)  # (batch_size, num_poses, 1, pose_dim)
+        target_expanded = target_poses_float.unsqueeze(1)  # (batch_size, 1, num_poses, pose_dim)
+
+        # Compute L2 distances
+        distances = torch.norm(predicted_expanded - target_expanded, dim=-1)  # (batch_size, num_poses, num_poses)
+
+        # For each batch item, find the minimum distance for each predicted pose
+        # This is a simple greedy matching (not optimal Hungarian algorithm)
+        min_distances = torch.min(distances, dim=-1)[0]  # (batch_size, num_poses)
+
+        # Return the mean of minimum distances
+        return min_distances.mean()
+    
+    def compute_loss(self, pose_hidden_states: torch.Tensor, target_poses: torch.Tensor) -> torch.Tensor:
+        """
+        Compute Hungarian matching loss.
+        
+        Args:
+            pose_hidden_states: Hidden states from LLM for pose tokens
+            target_poses: Target poses (batch_size, 6, pose_dim) from Hungarian dataset
+        
+        Returns:
+            Loss value
+        """
+        # Ensure all tensors are in bfloat16
+        pose_hidden_states = ensure_bfloat16(pose_hidden_states)
+        target_poses = ensure_bfloat16(target_poses)
+        
+        # Predict poses
+        predicted_poses = self.forward(pose_hidden_states)  # (batch_size, num_poses, pose_dim)
+        
+        # Target poses should already be (batch_size, 6, pose_dim) from Hungarian dataset
+        # No need to expand since we're using the special Hungarian dataset
+        
+        # Compute Hungarian matching loss
+        hungarian_loss = self.hungarian_matching_loss(predicted_poses, target_poses)
+        
+        return hungarian_loss 

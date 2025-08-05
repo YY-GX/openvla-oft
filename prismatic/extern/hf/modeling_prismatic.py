@@ -209,35 +209,18 @@ class PrismaticVisionBackbone(nn.Module):
         Args:
             pixel_values (torch.Tensor): Pixels for input image(s), (B, C, H, W).
         """
-        print("          - [PrismaticVisionBackbone.forward] Starting...")
-        print(f"          - [PrismaticVisionBackbone.forward] Input shape: {pixel_values.shape}")
-        print(f"          - [PrismaticVisionBackbone.forward] num_images_in_input: {self.num_images_in_input}")
-        print(f"          - [PrismaticVisionBackbone.forward] use_fused_vision_backbone: {self.use_fused_vision_backbone}")
-        
         if self.num_images_in_input == 1:
             if not self.use_fused_vision_backbone:
-                print("          - [PrismaticVisionBackbone.forward] Using single backbone (SigLIP only)...")
                 result = self.featurizer(pixel_values)
-                print(f"          - [PrismaticVisionBackbone.forward] Single backbone result shape: {result.shape}")
                 return result
 
             # Split `pixel_values :: [bsz, 2 * 3, resolution, resolution]` =>> featurize =>> channel stack
-            print("          - [PrismaticVisionBackbone.forward] Using fused backbone (SigLIP + DINOv2)...")
-            print("          - [PrismaticVisionBackbone.forward] Splitting pixel values...")
             img, img_fused = torch.split(pixel_values, [3, 3], dim=1)
-            print(f"          - [PrismaticVisionBackbone.forward] Split shapes: img={img.shape}, img_fused={img_fused.shape}")
             
-            print("          - [PrismaticVisionBackbone.forward] Processing through SigLIP featurizer...")
             patches = self.featurizer(img)
-            print(f"          - [PrismaticVisionBackbone.forward] SigLIP patches shape: {patches.shape}")
-            
-            print("          - [PrismaticVisionBackbone.forward] Processing through DINOv2 featurizer...")
             patches_fused = self.fused_featurizer(img_fused)
-            print(f"          - [PrismaticVisionBackbone.forward] DINOv2 patches shape: {patches_fused.shape}")
 
-            print("          - [PrismaticVisionBackbone.forward] Concatenating patches...")
             result = torch.cat([patches, patches_fused], dim=2)
-            print(f"          - [PrismaticVisionBackbone.forward] Final result shape: {result.shape}")
             return result
 
         else:

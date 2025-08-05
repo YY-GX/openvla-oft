@@ -6,15 +6,14 @@ Follows original codebase patterns and inherits from Dataset.
 """
 
 import os
-import json
-import numpy as np
 import pandas as pd
 import torch
-from PIL import Image
 from torch.utils.data import Dataset
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Any, Optional
+import numpy as np
+from PIL import Image
 from transformers import AutoTokenizer
-
+from collections import defaultdict
 from prismatic.overwatch import initialize_overwatch
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
@@ -40,6 +39,8 @@ class PoseDataset(Dataset):
         pose_augmentation: Optional[Any] = None,
         tokenizer_name: str = "microsoft/DialoGPT-medium",
         max_samples: Optional[int] = None,  # Add max_samples parameter for debugging
+        splits_folder: str = "splits",  # Subfolder containing annotation files
+        use_pose_normalization: bool = True,  # Whether to normalize Euler angles to [-π, π]
         **kwargs
     ):
         """
@@ -55,6 +56,7 @@ class PoseDataset(Dataset):
             pose_augmentation: Pose augmentation object
             tokenizer_name: Name of tokenizer to use
             max_samples: Maximum number of samples to load for debugging
+            use_pose_normalization: Whether to normalize Euler angles to [-π, π] range
         """
         super().__init__()
         
@@ -65,9 +67,11 @@ class PoseDataset(Dataset):
         self.image_size = image_size
         self.use_image_augmentation = use_image_augmentation
         self.pose_augmentation = pose_augmentation
+        self.splits_folder = splits_folder
+        self.use_pose_normalization = use_pose_normalization
         
-        # Load annotation data
-        annotation_path = os.path.join(data_root, "splits", f"{split}_annotation.csv")
+        # Load annotation data using the specified splits folder
+        annotation_path = os.path.join(data_root, splits_folder, f"{split}_annotation.csv")
         if not os.path.exists(annotation_path):
             raise FileNotFoundError(f"Annotation file not found: {annotation_path}")
         
@@ -108,6 +112,24 @@ class PoseDataset(Dataset):
         # This represents the number of image patches (typically 256 for 16x16 patches on 256x256 images)
         self.num_patches = (self.image_size // 16) ** 2  # Assuming 16x16 patches
     
+    def normalize_pose(self, pose):
+        """
+        Normalize 6D pose orientation (Euler angles) to [-π, π] range.
+        
+        Args:
+            pose: 6D pose array [x, y, z, rx, ry, rz] where rx, ry, rz are Euler angles
+            
+        Returns:
+            Normalized pose with Euler angles in [-π, π] range
+        """
+        position = pose[:3]
+        orientation = pose[3:]  # [rx, ry, rz] - Euler angles
+        
+        # Normalize each Euler angle to [-π, π]
+        normalized_orientation = np.mod(orientation + np.pi, 2 * np.pi) - np.pi
+        
+        return np.concatenate([position, normalized_orientation])
+
     def _validate_data(self):
         """Validate data consistency."""
         # Check that all pose indices are valid
@@ -155,22 +177,16 @@ class PoseDataset(Dataset):
     def _load_image(self, image_idx: int) -> torch.Tensor:
         """Load and preprocess image."""
         image_path = os.path.join(self.image_dir, f"{image_idx:05d}.jpg")
-        print(f"      - Opening image file: {image_path}")
         image = Image.open(image_path).convert('RGB')
-        print(f"      - Image opened successfully, size: {image.size}")
         
         # Apply augmentation if training
         if self.split == "train" and self.use_image_augmentation:
-            print(f"      - Applying augmentation...")
             image = self.aug_transform(image)
         else:
-            print(f"      - Applying basic transform...")
             image = self.transform(image)
         
-        print(f"      - Transform applied, tensor shape: {image.shape}")
         # Ensure image is in bfloat16 to prevent dtype mismatches
         result = image.to(torch.bfloat16)
-        print(f"      - Converted to bfloat16, final shape: {result.shape}")
         return result
     
     def _tokenize_text(self, text: str) -> Dict[str, torch.Tensor]:
@@ -195,6 +211,10 @@ class PoseDataset(Dataset):
         """Get pose target and apply augmentation if needed."""
         pose = torch.tensor(self.poses[pose_idx], dtype=torch.float32)
         
+        # Apply pose normalization to ensure Euler angles are in [-π, π]
+        if self.use_pose_normalization:
+            pose = torch.tensor(self.normalize_pose(pose.numpy()), dtype=torch.float32)
+        
         # Apply pose augmentation if available and training
         if self.split == "train" and self.pose_augmentation is not None:
             pose = self.pose_augmentation(pose)
@@ -208,9 +228,7 @@ class PoseDataset(Dataset):
         try:
             # Load image(s)
             if self.num_images_in_input == 1:
-                print(f"    - Loading image {sample['overview_image_idx']}...")
                 image = self._load_image(sample['overview_image_idx'])
-                print(f"    - Image loaded successfully, shape: {image.shape}")
                 # Duplicate channels to match OpenVLA's expected 6-channel format (3 regular + 3 fused)
                 pixel_values = torch.cat([image, image], dim=0)  # (6, height, width)
             elif self.num_images_in_input == 2:
@@ -223,15 +241,11 @@ class PoseDataset(Dataset):
             else:
                 raise ValueError(f"Unsupported num_images_in_input: {self.num_images_in_input}")
             
-            print(f"    - Tokenizing text...")
             # Tokenize text
             text_encoding = self._tokenize_text(sample['language_description'])
-            print(f"    - Text tokenized successfully")
             
-            print(f"    - Getting pose target...")
             # Get pose target
             pose_target = self._get_pose_target(sample['ee_pose_idx'])
-            print(f"    - Pose target retrieved successfully")
             
             # Create sample
             sample_dict = {
@@ -244,7 +258,6 @@ class PoseDataset(Dataset):
                 "ee_pose_idx": sample['ee_pose_idx']
             }
             
-            print(f"    - Sample {idx} created successfully")
             return sample_dict
             
         except Exception as e:
@@ -293,10 +306,147 @@ class PoseDataset(Dataset):
         return stats
 
 
+class HungarianPoseDataset(PoseDataset):
+    """
+    Dataset for Hungarian matching that groups poses by demo and returns all 6 poses per demo.
+    """
+    
+    # The 6 specific skills from smaller_splits
+    KITCHEN_SCENE4_SKILLS = [
+        "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet",
+        "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet",
+        "KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet",
+        "KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet",
+        "KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack",
+        "KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer"
+    ]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # For Hungarian dataset, we need to load from all splits to get all 6 skills
+        # Load train, val, and test data
+        splits_dir = os.path.join(self.data_root, self.splits_folder)
+        all_dfs = []
+        
+        for split in ['train', 'val', 'test']:
+            split_file = os.path.join(splits_dir, f'{split}_annotation.csv')
+            if os.path.exists(split_file):
+                df = pd.read_csv(split_file)
+                all_dfs.append(df)
+        
+        # Combine all splits
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        print(f"HungarianPoseDataset: Combined {len(combined_df)} samples from all splits")
+        
+        # Filter to only KITCHEN_SCENE4 skills
+        original_size = len(combined_df)
+        self.annotation_df = combined_df[
+            combined_df['language_description'].isin(self.KITCHEN_SCENE4_SKILLS)
+        ]
+        filtered_size = len(self.annotation_df)
+        
+        print(f"HungarianPoseDataset: Filtered from {original_size} to {filtered_size} samples")
+        print(f"Skills found: {sorted(self.annotation_df['language_description'].unique())}")
+        
+        # Re-group by demo after filtering
+        self.demo_groups = self._group_by_demo()
+    
+    def _group_by_demo(self):
+        """Group samples by demo and take the first 6 poses from each demo."""
+        demo_groups = defaultdict(list)
+        
+        # Group by demo using the current dataframe indices
+        for idx, row in self.annotation_df.iterrows():
+            demo_id = (row["source_skill_file_name"], row["source_demo_idx"])
+            demo_groups[demo_id].append(idx)
+        
+        # For each demo, take the first 6 poses (sorted by ee_pose_idx)
+        valid_groups = {}
+        for demo_id, indices in demo_groups.items():
+            if len(indices) >= 6:  # Need at least 6 poses
+                # Sort by ee_pose_idx to ensure consistent ordering
+                # Use loc instead of iloc to avoid index issues
+                demo_rows = self.annotation_df.loc[indices]
+                sorted_rows = demo_rows.sort_values("ee_pose_idx")
+                # Take the first 6 poses
+                valid_groups[demo_id] = sorted_rows.head(6).index.tolist()
+        
+        overwatch.info(f"Found {len(valid_groups)} demos with at least 6 poses (taking first 6)")
+        return valid_groups
+    
+    def __len__(self):
+        """Return number of demo groups."""
+        return len(self.demo_groups)
+    
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        """Get a single demo with all 6 poses."""
+        demo_id = list(self.demo_groups.keys())[idx]
+        pose_indices = self.demo_groups[demo_id]
+        
+        # Get the first sample for image and text (they should be the same for all poses in a demo)
+        # Use loc instead of iloc to avoid index issues
+        first_sample = self.annotation_df.loc[pose_indices[0]]
+        
+        try:
+            # Load image (same for all poses in demo)
+            if self.num_images_in_input == 1:
+                image = self._load_image(first_sample['overview_image_idx'])
+                pixel_values = torch.cat([image, image], dim=0)  # (6, height, width)
+            else:
+                raise ValueError(f"Unsupported num_images_in_input: {self.num_images_in_input}")
+            
+            # Tokenize text (same for all poses in demo)
+            text_encoding = self._tokenize_text(first_sample['language_description'])
+            
+            # Get all 6 pose targets
+            pose_targets = []
+            for pose_idx in pose_indices:
+                # Use loc instead of iloc
+                sample = self.annotation_df.loc[pose_idx]
+                pose_target = self._get_pose_target(sample['ee_pose_idx'])
+                pose_targets.append(pose_target)
+            
+            # Stack all poses into a single tensor
+            all_pose_targets = torch.stack(pose_targets)  # (6, pose_dim)
+            
+            # Create sample
+            sample_dict = {
+                "pixel_values": pixel_values,
+                "input_ids": text_encoding["input_ids"],
+                "attention_mask": text_encoding["attention_mask"],
+                "pose_targets": all_pose_targets,  # (6, pose_dim) instead of (pose_dim,)
+                "language_description": first_sample['language_description'],
+                "overview_image_idx": first_sample['overview_image_idx'],
+                "demo_id": demo_id
+            }
+            
+            return sample_dict
+            
+        except Exception as e:
+            overwatch.warning(f"Error loading demo {demo_id}: {e}")
+            # Return a dummy sample in case of error
+            dummy_image = torch.zeros(3, self.image_size, self.image_size)
+            dummy_input_ids = torch.zeros(self.max_length, dtype=torch.long)
+            dummy_attention_mask = torch.zeros(self.max_length, dtype=torch.long)
+            dummy_poses = torch.zeros(6, self.poses.shape[1] if len(self.poses.shape) > 1 else 1)
+            
+            return {
+                "pixel_values": dummy_image.unsqueeze(0),
+                "input_ids": dummy_input_ids,
+                "attention_mask": dummy_attention_mask,
+                "pose_targets": dummy_poses,
+                "language_description": "",
+                "overview_image_idx": -1,
+                "demo_id": ("", -1)
+            }
+
+
 def create_pose_dataset(
     data_root: str,
     split: str = "train",
     num_images_in_input: int = 1,
+    splits_folder: str = "splits",
     **kwargs
 ) -> PoseDataset:
     """
@@ -306,6 +456,7 @@ def create_pose_dataset(
         data_root: Root directory containing data
         split: Dataset split ('train', 'val', 'test')
         num_images_in_input: Number of images per sample
+        splits_folder: Subfolder containing annotation files (default: "splits")
         **kwargs: Additional arguments passed to PoseDataset
     
     Returns:
@@ -315,5 +466,6 @@ def create_pose_dataset(
         data_root=data_root,
         split=split,
         num_images_in_input=num_images_in_input,
+        splits_folder=splits_folder,
         **kwargs
     ) 

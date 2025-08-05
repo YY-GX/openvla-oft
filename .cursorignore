@@ -1,0 +1,5 @@
+datasets/hdf5_datasets
+datasets/rlds_datasets
+datasets/local_pairs_datasets/3rd_imgs/*
+datasets/local_pairs_datasets/debugging_imgs/*
+runs
