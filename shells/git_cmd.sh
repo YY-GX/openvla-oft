@@ -72,4 +72,19 @@ echo ""
 echo "=== Ready to push! ==="
 echo "To push to current branch: git push"
 echo "To push to specific branch: git push origin <branch-name>"
-echo "To push all branches: git push --all origin" 
+echo "To push all branches: git push --all origin"
+
+echo ""
+echo "=== Pushing all branches ==="
+echo "Pushing main branch..."
+git push origin main
+
+echo "Pushing pose-generator branch..."
+git push origin pose-generator
+
+echo "Pushing reorganize-vlm-pose-predictor branch..."
+git push origin reorganize-vlm-pose-predictor
+
+echo ""
+echo "=== All branches pushed successfully! ==="
+echo "You can also use: git push --all origin (to push all branches at once)" 
