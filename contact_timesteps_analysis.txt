@@ -1,0 +1,58 @@
+CONTACT TIMESTEPS ANALYSIS REPORT
+==================================================
+
+Overall Statistics:
+  total_tasks: 44
+  total_demos: 2001
+  avg_demos_per_task: 45.47727272727273
+  min_timestep: 23
+  max_timestep: 166
+  mean_timestep: 60.211394302848575
+  std_timestep: 23.73678732618766
+  median_timestep: 52.0
+
+Task Statistics:
+  KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet: {'num_demos': 49, 'min_timestep': 36, 'max_timestep': 55, 'mean_timestep': 45.12244897959184, 'std_timestep': 3.8419417553469692, 'median_timestep': 45.0}
+  KITCHEN_SCENE10_put_the_black_bowl_in_the_top_drawer_of_the_cabinet: {'num_demos': 49, 'min_timestep': 35, 'max_timestep': 54, 'mean_timestep': 42.87755102040816, 'std_timestep': 4.331341183915041, 'median_timestep': 42.0}
+  KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet: {'num_demos': 37, 'min_timestep': 68, 'max_timestep': 144, 'mean_timestep': 88.62162162162163, 'std_timestep': 16.20535672422957, 'median_timestep': 85.0}
+  KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet: {'num_demos': 46, 'min_timestep': 26, 'max_timestep': 60, 'mean_timestep': 39.23913043478261, 'std_timestep': 7.012984177220371, 'median_timestep': 39.0}
+  KITCHEN_SCENE1_put_the_black_bowl_on_the_plate: {'num_demos': 46, 'min_timestep': 37, 'max_timestep': 57, 'mean_timestep': 48.130434782608695, 'std_timestep': 4.739329872149758, 'median_timestep': 48.0}
+  KITCHEN_SCENE1_put_the_black_bowl_on_top_of_the_cabinet: {'num_demos': 50, 'min_timestep': 35, 'max_timestep': 66, 'mean_timestep': 48.3, 'std_timestep': 7.59802605944465, 'median_timestep': 47.0}
+  KITCHEN_SCENE2_open_the_top_drawer_of_the_cabinet: {'num_demos': 50, 'min_timestep': 28, 'max_timestep': 55, 'mean_timestep': 35.44, 'std_timestep': 5.142606343091021, 'median_timestep': 34.0}
+  KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate: {'num_demos': 46, 'min_timestep': 31, 'max_timestep': 55, 'mean_timestep': 37.130434782608695, 'std_timestep': 4.547377149676379, 'median_timestep': 36.0}
+  KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate: {'num_demos': 43, 'min_timestep': 46, 'max_timestep': 76, 'mean_timestep': 59.325581395348834, 'std_timestep': 6.604159824501588, 'median_timestep': 58.0}
+  KITCHEN_SCENE2_put_the_middle_black_bowl_on_the_plate: {'num_demos': 49, 'min_timestep': 34, 'max_timestep': 51, 'mean_timestep': 44.44897959183673, 'std_timestep': 3.545973424913919, 'median_timestep': 44.0}
+  KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet: {'num_demos': 48, 'min_timestep': 37, 'max_timestep': 62, 'mean_timestep': 46.708333333333336, 'std_timestep': 5.39273559728476, 'median_timestep': 46.0}
+  KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle: {'num_demos': 48, 'min_timestep': 41, 'max_timestep': 67, 'mean_timestep': 53.104166666666664, 'std_timestep': 5.979965103484208, 'median_timestep': 53.0}
+  KITCHEN_SCENE2_stack_the_middle_black_bowl_on_the_back_black_bowl: {'num_demos': 43, 'min_timestep': 34, 'max_timestep': 58, 'mean_timestep': 42.372093023255815, 'std_timestep': 4.725109846460092, 'median_timestep': 41.0}
+  KITCHEN_SCENE3_put_the_frying_pan_on_the_stove: {'num_demos': 45, 'min_timestep': 71, 'max_timestep': 164, 'mean_timestep': 94.24444444444444, 'std_timestep': 15.298737138231097, 'median_timestep': 92.0}
+  KITCHEN_SCENE3_put_the_moka_pot_on_the_stove: {'num_demos': 47, 'min_timestep': 74, 'max_timestep': 108, 'mean_timestep': 87.91489361702128, 'std_timestep': 9.071418259787263, 'median_timestep': 87.0}
+  KITCHEN_SCENE3_turn_on_the_stove: {'num_demos': 50, 'min_timestep': 40, 'max_timestep': 64, 'mean_timestep': 49.68, 'std_timestep': 5.2055355151991805, 'median_timestep': 49.0}
+  KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet: {'num_demos': 47, 'min_timestep': 30, 'max_timestep': 123, 'mean_timestep': 71.46808510638297, 'std_timestep': 17.711459283475307, 'median_timestep': 74.0}
+  KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet: {'num_demos': 47, 'min_timestep': 48, 'max_timestep': 83, 'mean_timestep': 63.57446808510638, 'std_timestep': 7.266198868298492, 'median_timestep': 64.0}
+  KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet: {'num_demos': 48, 'min_timestep': 54, 'max_timestep': 87, 'mean_timestep': 67.5625, 'std_timestep': 7.020524226627714, 'median_timestep': 67.0}
+  KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet: {'num_demos': 45, 'min_timestep': 39, 'max_timestep': 57, 'mean_timestep': 46.84444444444444, 'std_timestep': 4.125560193910671, 'median_timestep': 47.0}
+  KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack: {'num_demos': 38, 'min_timestep': 98, 'max_timestep': 166, 'mean_timestep': 120.92105263157895, 'std_timestep': 14.413775536193015, 'median_timestep': 121.0}
+  KITCHEN_SCENE5_close_the_top_drawer_of_the_cabinet: {'num_demos': 50, 'min_timestep': 28, 'max_timestep': 69, 'mean_timestep': 42.54, 'std_timestep': 7.66344570020562, 'median_timestep': 41.0}
+  KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet: {'num_demos': 50, 'min_timestep': 38, 'max_timestep': 60, 'mean_timestep': 47.68, 'std_timestep': 4.4472013671521555, 'median_timestep': 47.0}
+  KITCHEN_SCENE5_put_the_black_bowl_on_the_plate: {'num_demos': 44, 'min_timestep': 37, 'max_timestep': 67, 'mean_timestep': 53.0, 'std_timestep': 7.080703611673322, 'median_timestep': 53.5}
+  KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet: {'num_demos': 50, 'min_timestep': 40, 'max_timestep': 66, 'mean_timestep': 54.98, 'std_timestep': 5.201884273991492, 'median_timestep': 55.5}
+  KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet: {'num_demos': 43, 'min_timestep': 78, 'max_timestep': 123, 'mean_timestep': 96.09302325581395, 'std_timestep': 12.718442850221205, 'median_timestep': 93.0}
+  KITCHEN_SCENE6_close_the_microwave: {'num_demos': 48, 'min_timestep': 40, 'max_timestep': 91, 'mean_timestep': 50.333333333333336, 'std_timestep': 8.304951668867329, 'median_timestep': 50.0}
+  KITCHEN_SCENE7_open_the_microwave: {'num_demos': 49, 'min_timestep': 27, 'max_timestep': 73, 'mean_timestep': 47.46938775510204, 'std_timestep': 7.3958124964265455, 'median_timestep': 48.0}
+  KITCHEN_SCENE7_put_the_white_bowl_on_the_plate: {'num_demos': 42, 'min_timestep': 60, 'max_timestep': 118, 'mean_timestep': 75.38095238095238, 'std_timestep': 10.674741841313297, 'median_timestep': 73.0}
+  KITCHEN_SCENE7_put_the_white_bowl_to_the_right_of_the_plate: {'num_demos': 44, 'min_timestep': 43, 'max_timestep': 76, 'mean_timestep': 54.40909090909091, 'std_timestep': 6.705893547057157, 'median_timestep': 54.0}
+  KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove: {'num_demos': 41, 'min_timestep': 85, 'max_timestep': 147, 'mean_timestep': 110.21951219512195, 'std_timestep': 13.362693235038876, 'median_timestep': 106.0}
+  KITCHEN_SCENE8_turn_off_the_stove: {'num_demos': 42, 'min_timestep': 56, 'max_timestep': 135, 'mean_timestep': 86.04761904761905, 'std_timestep': 19.352559054298567, 'median_timestep': 83.0}
+  KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf: {'num_demos': 34, 'min_timestep': 83, 'max_timestep': 136, 'mean_timestep': 101.91176470588235, 'std_timestep': 11.371708048689813, 'median_timestep': 101.0}
+  KITCHEN_SCENE9_put_the_frying_pan_on_top_of_the_cabinet: {'num_demos': 40, 'min_timestep': 67, 'max_timestep': 127, 'mean_timestep': 88.65, 'std_timestep': 11.544587476389099, 'median_timestep': 86.0}
+  KITCHEN_SCENE9_put_the_frying_pan_under_the_cabinet_shelf: {'num_demos': 45, 'min_timestep': 81, 'max_timestep': 137, 'mean_timestep': 110.2, 'std_timestep': 10.512637897100591, 'median_timestep': 111.0}
+  KITCHEN_SCENE9_put_the_white_bowl_on_top_of_the_cabinet: {'num_demos': 45, 'min_timestep': 44, 'max_timestep': 74, 'mean_timestep': 56.333333333333336, 'std_timestep': 7.039570693980958, 'median_timestep': 56.0}
+  KITCHEN_SCENE9_turn_on_the_stove: {'num_demos': 49, 'min_timestep': 62, 'max_timestep': 99, 'mean_timestep': 73.9795918367347, 'std_timestep': 7.147112435098063, 'median_timestep': 73.0}
+  LIVING_ROOM_SCENE5_put_the_red_mug_on_the_left_plate: {'num_demos': 37, 'min_timestep': 33, 'max_timestep': 56, 'mean_timestep': 42.891891891891895, 'std_timestep': 5.778729794891494, 'median_timestep': 42.0}
+  LIVING_ROOM_SCENE5_put_the_red_mug_on_the_right_plate: {'num_demos': 44, 'min_timestep': 31, 'max_timestep': 69, 'mean_timestep': 42.84090909090909, 'std_timestep': 6.670638451855407, 'median_timestep': 41.0}
+  LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate: {'num_demos': 45, 'min_timestep': 23, 'max_timestep': 73, 'mean_timestep': 33.8, 'std_timestep': 7.06352131258435, 'median_timestep': 33.0}
+  LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate: {'num_demos': 48, 'min_timestep': 43, 'max_timestep': 87, 'mean_timestep': 54.270833333333336, 'std_timestep': 8.24807953236523, 'median_timestep': 53.0}
+  LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate: {'num_demos': 50, 'min_timestep': 34, 'max_timestep': 54, 'mean_timestep': 41.02, 'std_timestep': 5.315975921691143, 'median_timestep': 39.5}
+  LIVING_ROOM_SCENE6_put_the_red_mug_on_the_plate: {'num_demos': 46, 'min_timestep': 35, 'max_timestep': 54, 'mean_timestep': 43.21739130434783, 'std_timestep': 4.3981866000227905, 'median_timestep': 43.0}
+  LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate: {'num_demos': 44, 'min_timestep': 45, 'max_timestep': 82, 'mean_timestep': 58.18181818181818, 'std_timestep': 8.713293728740343, 'median_timestep': 56.0}

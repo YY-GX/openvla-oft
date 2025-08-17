@@ -1,0 +1,478 @@
+{
+  "missing_open_states": [
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_black_bowl_on_the_plate_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_top_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_top_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE10_put_the_black_bowl_in_the_top_drawer_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "wooden_cabinet_1_top_region"
+      ],
+      "original_opens": [
+        "wooden_cabinet_1_top_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_top_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_top_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_top_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_top_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_bottom_region"
+      ],
+      "place_opens": []
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+      "missing_open_states": [
+        "white_cabinet_1_top_region"
+      ],
+      "original_opens": [
+        "white_cabinet_1_top_region"
+      ],
+      "place_opens": []
+    }
+  ],
+  "wrong_objects_in_place_files": [
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE6_put_the_red_mug_on_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "porcelain_mug_1",
+        "chocolate_pudding_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE3_put_the_moka_pot_on_the_stove_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "chefmate_8_frypan_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "wine_rack_1",
+        "wine_bottle_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE2_put_the_middle_black_bowl_on_the_plate_place.bddl",
+      "extra_objects": [
+        "akita_black_bowl_2"
+      ],
+      "missing_objects": [
+        "wooden_cabinet_1",
+        "akita_black_bowl_3"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate_place.bddl",
+      "extra_objects": [
+        "akita_black_bowl_1"
+      ],
+      "missing_objects": [
+        "wooden_cabinet_1",
+        "akita_black_bowl_3"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE1_put_the_black_bowl_on_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "wooden_cabinet_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_white_bowl_on_top_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "flat_stove_1",
+        "chefmate_8_frypan_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE5_put_the_red_mug_on_the_left_plate_place.bddl",
+      "extra_objects": [
+        "plate_1"
+      ],
+      "missing_objects": [
+        "porcelain_mug_1",
+        "white_yellow_mug_1",
+        "plate_2"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "red_coffee_mug_1",
+        "chocolate_pudding_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_black_bowl_on_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "white_cabinet_1",
+        "ketchup_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_frying_pan_under_the_cabinet_shelf_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "flat_stove_1",
+        "white_bowl_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE10_put_the_black_bowl_in_the_top_drawer_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "butter_2",
+        "chocolate_pudding_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "plate_1",
+        "ketchup_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "flat_stove_1",
+        "white_bowl_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE1_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "plate_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle_place.bddl",
+      "extra_objects": [
+        "akita_black_bowl_2"
+      ],
+      "missing_objects": [
+        "wooden_cabinet_1",
+        "akita_black_bowl_3",
+        "plate_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_frying_pan_on_top_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "flat_stove_1",
+        "white_bowl_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE2_stack_the_middle_black_bowl_on_the_back_black_bowl_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "wooden_cabinet_1",
+        "plate_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "wooden_cabinet_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_place.bddl",
+      "extra_objects": [
+        "plate_1"
+      ],
+      "missing_objects": [
+        "red_coffee_mug_1",
+        "white_yellow_mug_1",
+        "plate_2"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet_place.bddl",
+      "extra_objects": [
+        "akita_black_bowl_2"
+      ],
+      "missing_objects": [
+        "akita_black_bowl_3",
+        "plate_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE3_put_the_frying_pan_on_the_stove_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "moka_pot_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE7_put_the_white_bowl_on_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "microwave_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "white_cabinet_1",
+        "akita_black_bowl_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "wine_rack_1",
+        "akita_black_bowl_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "akita_black_bowl_1",
+        "plate_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE5_put_the_red_mug_on_the_right_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "porcelain_mug_1",
+        "white_yellow_mug_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE7_put_the_white_bowl_to_the_right_of_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "microwave_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "porcelain_mug_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "wine_rack_1",
+        "wine_bottle_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "porcelain_mug_1"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove_place.bddl",
+      "extra_objects": [
+        "moka_pot_1"
+      ],
+      "missing_objects": [
+        "moka_pot_2"
+      ],
+      "task_type": "place"
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+      "extra_objects": [],
+      "missing_objects": [
+        "plate_1",
+        "ketchup_1"
+      ],
+      "task_type": "place"
+    }
+  ],
+  "missing_fixtures_in_pick_files": [
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE7_put_the_white_bowl_to_the_right_of_the_plate_pick.bddl",
+      "defined_fixtures": [
+        "kitchen_table"
+      ],
+      "referenced_fixtures": [
+        "microwave_1"
+      ],
+      "missing_fixtures": [
+        "microwave_1"
+      ]
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE3_put_the_frying_pan_on_the_stove_pick.bddl",
+      "defined_fixtures": [
+        "kitchen_table"
+      ],
+      "referenced_fixtures": [
+        "kitchen_table",
+        "chefmate_8"
+      ],
+      "missing_fixtures": [
+        "chefmate_8"
+      ]
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_frying_pan_under_the_cabinet_shelf_pick.bddl",
+      "defined_fixtures": [
+        "kitchen_table"
+      ],
+      "referenced_fixtures": [
+        "kitchen_table",
+        "chefmate_8"
+      ],
+      "missing_fixtures": [
+        "chefmate_8"
+      ]
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE7_put_the_white_bowl_on_the_plate_pick.bddl",
+      "defined_fixtures": [
+        "kitchen_table"
+      ],
+      "referenced_fixtures": [
+        "microwave_1"
+      ],
+      "missing_fixtures": [
+        "microwave_1"
+      ]
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf_pick.bddl",
+      "defined_fixtures": [
+        "kitchen_table"
+      ],
+      "referenced_fixtures": [
+        "kitchen_table",
+        "chefmate_8"
+      ],
+      "missing_fixtures": [
+        "chefmate_8"
+      ]
+    },
+    {
+      "file": "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/KITCHEN_SCENE9_put_the_frying_pan_on_top_of_the_cabinet_pick.bddl",
+      "defined_fixtures": [
+        "kitchen_table"
+      ],
+      "referenced_fixtures": [
+        "kitchen_table",
+        "chefmate_8"
+      ],
+      "missing_fixtures": [
+        "chefmate_8"
+      ]
+    }
+  ]
+}

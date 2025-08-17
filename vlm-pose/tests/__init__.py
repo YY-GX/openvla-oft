@@ -1,0 +1,1 @@
+# Test package for VLM pose dataset curation pipeline
