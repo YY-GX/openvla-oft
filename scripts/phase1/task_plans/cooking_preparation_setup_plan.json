@@ -1,0 +1,26 @@
+{
+  "task_name": "Cooking Preparation Setup",
+  "planning_method": "simple_fixed_task_planner",
+  "timestamp": "/mnt/arc/yygx/pkgs_baselines/openvla-oft",
+  "skills_sequence": [
+    "pick moka pot",
+    "place moka pot on the stove 2",
+    "turn on the stove 2",
+    "pick frying pan",
+    "place frying pan on the stove 1",
+    "turn on the stove 1",
+    "open the microwave 1"
+  ],
+  "skill_dataset_paths": {
+    "pick moka pot": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_moka_pot_combined.hdf5",
+    "place moka pot on the stove 2": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_moka_pot_on_the_stove_combined.hdf5",
+    "turn on the stove 2": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/turn_on_the_stove_combined.hdf5",
+    "pick frying pan": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_frying_pan_combined.hdf5",
+    "place frying pan on the stove 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_frying_pan_on_the_stove_combined.hdf5",
+    "turn on the stove 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/turn_on_the_stove_combined.hdf5",
+    "open the microwave 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/open_the_microwave_combined.hdf5"
+  },
+  "total_skills": 7,
+  "mapped_skills": 7,
+  "missing_skills": []
+}

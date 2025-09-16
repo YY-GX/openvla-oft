@@ -1,0 +1,27 @@
+{
+  "position_std": [
+    0.026673337496929593,
+    0.028957505529282668,
+    0.029955066735380467
+  ],
+  "orientation_std": 0.03174331370933611,
+  "position_mean_bias": [
+    0.0012577745399518741,
+    0.0014826475536994634,
+    0.0014016981562274505
+  ],
+  "orientation_mean_bias": 0.03928536386454787,
+  "correlation": -0.127316257910748,
+  "distribution_type": "normal",
+  "safety_factor": 2.5,
+  "analysis_metadata": {
+    "num_samples": 70,
+    "analysis_date": "2025-09-15T15:34:36.972668",
+    "position_percentile_95": [
+      0.016581663429142635,
+      0.01715918988152765,
+      0.0191230154379729
+    ],
+    "orientation_percentile_95": 0.06204014401910556
+  }
+}

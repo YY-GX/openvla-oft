@@ -36,16 +36,23 @@ sys.path.append('/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss')
 from libero.libero import benchmark
 from experiments.robot.libero.libero_utils import get_libero_env
 
-# TracIK imports 
-import sys
-import os
-
-# Direct absolute path import approach
-utils_path = '/mnt/arc/yygx/pkgs_baselines/openvla-oft/utils'
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-from tracik_tools import solve_ik, pose6d_to_matrix
+# # TracIK imports
+# # from utils.tracik_tools import solve_ik, pose6d_to_matrix
+# try:
+#     from tracik_tools import solve_ik, pose6d_to_matrix
+# except ImportError:
+#     # Fallback: try the original import
+#     try:
+#         from utils.tracik_tools import solve_ik, pose6d_to_matrix
+#     except ImportError as e:
+#         print(f"Import error: {e}")
+#         print(f"Script dir: {script_dir}")
+#         print(f"Repo root: {repo_root}")
+#         print(f"Utils tracik path: {utils_tracik_path}")
+#         print(f"Utils path exists: {os.path.exists(os.path.join(repo_root, 'utils', 'tracik_tools.py'))}")
+#         print(f"Current sys.path: {sys.path[:7]}")
+#         raise
+from scripts.phase2.utils.motion_planner import MotionPlanner
 
 # Import Phase 1 components dynamically
 import importlib.util
@@ -293,7 +300,7 @@ class VLAExecutor:
             # Run skill execution
             t = 0
             
-            dummy_action = np.zeros(7)
+            dummy_action = np.array([0, 0, 0, 0, 0, 0, -1])  # 6-DOF + gripper open
             obs, _, _, _ = env.step(dummy_action)
             
             # Save debug image: initial image before VLA execution
@@ -379,398 +386,6 @@ class VLAExecutor:
             return False
 
 
-class MotionPlanner:
-    """Motion planning and IK functionality."""
-    
-    def __init__(self, env, method: str = "cartesian_linear", num_steps: int = 400, pos_gain: float = 5.0, ori_gain: float = 5.0):
-        """
-        Initialize motion planner.
-        
-        Args:
-            env: LIBERO environment with robot
-            method: Motion planning method ('ik_setjoint' or 'cartesian_linear')
-            num_steps: Number of interpolation steps for cartesian_linear method
-            pos_gain: Position gain for cartesian_linear method
-            ori_gain: Orientation gain for cartesian_linear method
-        """
-        self.env = env
-        self.method = method
-        self.num_steps = num_steps
-        self.pos_gain = pos_gain
-        self.ori_gain = ori_gain
-        print(f"🔧 MotionPlanner initialized with method: {method}, steps: {num_steps}, gains: pos={pos_gain}, ori={ori_gain}")
-    
-    def inverse_kinematics(self, target_ee_pos: np.ndarray, target_ee_quat: np.ndarray, silent: bool = False) -> Optional[np.ndarray]:
-        """
-        Calculate joint positions to reach target end-effector pose using TracIK.
-        
-        Args:
-            target_ee_pos: Target end-effector position [x, y, z]
-            target_ee_quat: Target end-effector quaternion [x, y, z, w]
-            silent: Whether to suppress debug logging
-            
-        Returns:
-            Joint positions or None if IK fails
-        """
-        try:
-            
-            # Get current joint positions as starting point
-            current_qpos = self.env.sim.data.qpos.copy()
-            robot_joints = current_qpos[:7]  # Assuming 7-DOF robot
-            
-            # Convert quaternion [x,y,z,w] to axis-angle (rotation vector)
-            target_rot = R.from_quat(target_ee_quat)
-            target_rotvec = target_rot.as_rotvec()
-            
-            # Create 6D pose (xyz + axis-angle)
-            pose6d = np.concatenate([target_ee_pos, target_rotvec])
-            
-            # Apply coordinate transform from MuJoCo world coords to robot base link coords
-            # Translation: MuJoCo = FK + [-0.665, 0.0, 0.816]  
-            # Therefore: FK = MuJoCo - [-0.665, 0.0, 0.816] = MuJoCo + [0.665, 0.0, -0.816]
-            # Orientation: Flip X and Z axes as requested
-            coord_transform_translation = np.array([0.665, 0.0, -0.816])
-            transformed_pos = target_ee_pos + coord_transform_translation
-            
-            # Flip X and Z axes for rotation
-            transformed_rotvec = target_rotvec.copy()
-            # transformed_rotvec[0] = -transformed_rotvec[0]  # Flip X-axis rotation
-            # transformed_rotvec[2] = -transformed_rotvec[2]  # Flip Z-axis rotation
-            transformed_rotvec[0] = transformed_rotvec[0]  # Flip X-axis rotation
-            transformed_rotvec[2] = transformed_rotvec[2]  # Flip Z-axis rotation
-            
-            pose6d_robot_coords = np.concatenate([transformed_pos, transformed_rotvec])
-            
-            # Convert 6D pose to 4x4 homogeneous matrix using pose6d_to_matrix
-            target_pose_matrix = pose6d_to_matrix(pose6d_robot_coords)
-            
-            # 5. EE pose in robot coordinate (after applying offset and flip x and z axis)
-            target_rot = R.from_quat(target_ee_quat)
-            target_axis = target_rot.as_rotvec()
-            if not silent:
-                print(f"5️⃣ EE pose in robot coordinate: pos=[{transformed_pos[0]:.4f}, {transformed_pos[1]:.4f}, {transformed_pos[2]:.4f}], axis=[{transformed_rotvec[0]:.4f}, {transformed_rotvec[1]:.4f}, {transformed_rotvec[2]:.4f}]")
-            
-            # Solve IK using TracIK
-            target_joints = solve_ik(target_pose_matrix, current_joints=robot_joints)
-            
-            if target_joints is not None:
-                # Get EE pose after IK + set joint for logging
-                original_qpos = self.env.sim.data.qpos.copy()
-                temp_qpos = original_qpos.copy()
-                temp_qpos[:7] = target_joints
-                self.env.sim.data.qpos[:] = temp_qpos
-                self.env.sim.forward()
-                
-                # 6. EE pose in world coordinate after IK + set joint
-                final_pos, final_quat = self._get_ee_pose_from_simulation()
-                if final_pos is not None and not silent:
-                    final_rot = R.from_quat(final_quat)
-                    final_axis = final_rot.as_rotvec()
-                    print(f"6️⃣ EE pose in world coordinate (after IK): pos=[{final_pos[0]:.4f}, {final_pos[1]:.4f}, {final_pos[2]:.4f}], axis=[{final_axis[0]:.4f}, {final_axis[1]:.4f}, {final_axis[2]:.4f}]")
-                
-                # Restore original joint positions
-                self.env.sim.data.qpos[:] = original_qpos
-                self.env.sim.forward()
-                
-                return target_joints
-            else:
-                # Try with neutral pose as initial guess
-                from utils.tracik_tools import DEFAULT_NEUTRAL_QPOS
-                target_joints = solve_ik(target_pose_matrix, current_joints=DEFAULT_NEUTRAL_QPOS)
-                
-                if target_joints is not None:
-                    return target_joints
-                else:
-                    return None
-            
-        except Exception as e:
-            print(f"   ❌ IK failed: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
-    
-    def move_to_joints(self, target_joints: np.ndarray) -> bool:
-        """
-        Move robot to target joint positions.
-        
-        Args:
-            target_joints: Target joint positions
-            
-        Returns:
-            True if movement successful, False otherwise
-        """
-        try:
-            print(f"🚀 Moving robot to target pose...")
-            
-            # Set joint positions directly
-            current_qpos = self.env.sim.data.qpos.copy()
-            current_qpos[:7] = target_joints  # Set robot joint positions
-            
-            self.env.sim.data.qpos[:] = current_qpos
-            self.env.sim.forward()  # Forward kinematics to update poses
-            
-            # CRITICAL: Step environment to update observations for VLA
-            dummy_action = np.zeros(7)
-            obs, _, _, _ = self.env.step(dummy_action)
-            
-            # Record frame during motion planning (if video recording is enabled)
-            if hasattr(self.env, 'pipeline') and hasattr(self.env.pipeline, '_record_frame'):
-                self.env.pipeline._record_frame(obs)
-            
-            print(f"   ✅ Robot moved to target pose")
-            return True, obs
-            
-        except Exception as e:
-            print(f"   ❌ Robot movement failed: {e}")
-            return False
-    
-    def _get_ee_pose_from_simulation(self):
-        """
-        Get ground truth end-effector pose directly from MuJoCo simulation.
-        
-        Returns:
-            Tuple of (position, quaternion) or (None, None) if not found
-        """
-        try:                    
-            try:
-                # Try step with dummy action to get fresh observation
-                dummy_action = np.zeros(7)
-                obs, _, _, _ = self.env.step(dummy_action)
-                if 'robot0_eef_pos' in obs and 'robot0_eef_quat' in obs:
-                    position = obs['robot0_eef_pos'].copy()
-                    quaternion = obs['robot0_eef_quat'].copy()
-                    return position, quaternion
-            except Exception as e:
-                print(f"Debug: Failed to get EE pose from step: {e}")
-            
-            # # Second priority: Try from MuJoCo data directly
-            # model = self.env.sim.model
-            # data = self.env.sim.data
-            
-            # # Common end-effector body names for Franka Panda robot
-            # ee_body_names = ['panda_hand', 'robot0_eef', 'panda_link8', 'panda_eef', 'end_effector', 'gripper_site']
-            
-            # # Try to find the end-effector body
-            # for body_name in ee_body_names:
-            #     try:
-            #         body_id = model.body_name2id(body_name)
-            #         position = data.body_xpos[body_id].copy()
-            #         quaternion = data.body_xquat[body_id].copy()
-            #         return position, quaternion
-            #     except:
-            #         continue
-            
-            # # Try to get from site (for gripper)
-            # try:
-            #     site_id = model.site_name2id('gripper_site')
-            #     position = data.site_xpos[site_id].copy()
-            #     quaternion = data.site_xmat[site_id].reshape(3, 3)
-            #     # Convert rotation matrix to quaternion
-            #     rot = R.from_matrix(quaternion)
-            #     quaternion = rot.as_quat()
-            #     return position, quaternion
-            # except:
-            #     pass
-            
-            # return None, None
-            
-        except Exception as e:
-            print(f"Error getting EE pose from simulation: {e}")
-            return None, None
-
-    def _validate_ik_solution(self, current_joints: np.ndarray, desired_pos: np.ndarray, desired_quat: np.ndarray, calculated_joints: np.ndarray):
-        """
-        Validate IK solution by comparing desired pose with achieved pose from MuJoCo simulation.
-        This method is now simplified for visualization mode.
-        """
-        pass  # Removed detailed validation logging as requested
-    
-    def move_to_pose(self, target_ee_pos: np.ndarray, target_ee_quat: np.ndarray, num_steps: int = None) -> tuple:
-        """
-        Move robot to target end-effector pose using the configured motion planning method.
-        
-        Args:
-            target_ee_pos: Target end-effector position [x, y, z]
-            target_ee_quat: Target end-effector quaternion [x, y, z, w]
-            num_steps: Number of interpolation steps for cartesian_linear method (default: 400)
-            
-        Returns:
-            Tuple of (success: bool, obs: dict) where obs is the environment observation after movement
-        """
-        if num_steps is None:
-            num_steps = self.num_steps
-            
-        if self.method == "ik_setjoint":
-            return self._move_to_pose_ik_setjoint(target_ee_pos, target_ee_quat)
-        elif self.method == "cartesian_linear":
-            return self._move_to_pose_cartesian_linear(target_ee_pos, target_ee_quat, num_steps)
-        else:
-            raise ValueError(f"Unknown motion planner method: {self.method}")
-    
-    def _move_to_pose_ik_setjoint(self, target_ee_pos: np.ndarray, target_ee_quat: np.ndarray) -> tuple:
-        """
-        Move to pose using IK + setjoint method (original implementation).
-        
-        Args:
-            target_ee_pos: Target end-effector position [x, y, z]
-            target_ee_quat: Target end-effector quaternion [x, y, z, w]
-            
-        Returns:
-            Tuple of (success: bool, obs: dict)
-        """
-        # Use existing IK + setjoint implementation
-        target_joints = self.inverse_kinematics(target_ee_pos, target_ee_quat, silent=False)
-        if target_joints is None:
-            print(f"   ❌ IK failed for target pose")
-            return False, None
-        
-        return self.move_to_joints(target_joints)
-    
-    def _move_to_pose_cartesian_linear(self, target_ee_pos: np.ndarray, target_ee_quat: np.ndarray, num_steps: int = 400) -> tuple:
-        """
-        Move to pose using Cartesian Linear Interpolation.
-        
-        Uses linear interpolation for position and SLERP for orientation,
-        then converts each waypoint to OSC delta control via env.step().
-        
-        Args:
-            target_ee_pos: Target end-effector position [x, y, z]
-            target_ee_quat: Target end-effector quaternion [x, y, z, w]
-            num_steps: Number of interpolation steps
-            
-        Returns:
-            Tuple of (success: bool, obs: dict)
-        """
-        print(f"🎯 Cartesian Linear Interpolation to target pose ({num_steps} steps)")
-        
-        try:
-            # Get current end-effector pose
-            current_pos, current_quat = self._get_ee_pose_from_simulation()
-            if current_pos is None or current_quat is None:
-                print(f"   ❌ Failed to get current EE pose")
-                return False, None
-            
-            print(f"   📍 Current EE: pos=[{current_pos[0]:.4f}, {current_pos[1]:.4f}, {current_pos[2]:.4f}]")
-            print(f"   🎯 Target EE:  pos=[{target_ee_pos[0]:.4f}, {target_ee_pos[1]:.4f}, {target_ee_pos[2]:.4f}]")
-            
-            # Generate interpolated waypoints
-            waypoints_pos = []
-            waypoints_quat = []
-            
-            # Linear interpolation for position
-            for i in range(num_steps + 1):
-                t = i / num_steps
-                interp_pos = current_pos + t * (target_ee_pos - current_pos)
-                waypoints_pos.append(interp_pos)
-            
-            # SLERP for orientation interpolation
-            from scipy.spatial.transform import Rotation as R, Slerp
-            
-            # Convert quaternions to scipy Rotation objects
-            current_rot = R.from_quat(current_quat)  # [x, y, z, w]
-            target_rot = R.from_quat(target_ee_quat)  # [x, y, z, w]
-            
-            # Create SLERP interpolator
-            key_times = [0, 1]
-            key_rotations = R.from_quat([current_quat, target_ee_quat])
-            slerp = Slerp(key_times, key_rotations)
-            
-            # Generate interpolated orientations
-            for i in range(num_steps + 1):
-                t = i / num_steps
-                interp_rot = slerp(t)
-                interp_quat = interp_rot.as_quat()  # [x, y, z, w]
-                waypoints_quat.append(interp_quat)
-            
-            # Execute waypoints using OSC delta control
-            obs = None
-            convergence_threshold = 0.02  # 2cm convergence threshold
-            
-            for i, (waypoint_pos, waypoint_quat) in enumerate(zip(waypoints_pos, waypoints_quat)):
-                # Skip the first waypoint (current pose)
-                if i == 0:
-                    continue
-                
-                # Get current pose again for delta calculation
-                curr_pos, curr_quat = self._get_ee_pose_from_simulation()
-                if curr_pos is None or curr_quat is None:
-                    print(f"   ❌ Failed to get current EE pose at step {i}")
-                    return False, obs
-                
-                # Check for convergence (early termination)
-                current_error = np.linalg.norm(curr_pos - target_ee_pos)
-                if current_error < convergence_threshold:
-                    print(f"   🎯 Converged at step {i}/{num_steps}: error={current_error:.4f}m < threshold={convergence_threshold:.4f}m")
-                    obs, _, _, _ = self.env.step(np.zeros(7))  # Final dummy step to get fresh observation
-                    
-                    # Record frame during motion planning (if video recording is enabled)
-                    if hasattr(self.env, 'pipeline') and hasattr(self.env.pipeline, '_record_frame'):
-                        self.env.pipeline._record_frame(obs)
-                    
-                    break
-                
-                # Calculate position delta
-                pos_delta = waypoint_pos - curr_pos
-                
-                # Calculate orientation delta (axis-angle)
-                curr_rot = R.from_quat(curr_quat)
-                waypoint_rot = R.from_quat(waypoint_quat)
-                # Relative rotation: R_target = R_delta * R_current => R_delta = R_target * R_current^-1
-                delta_rot = waypoint_rot * curr_rot.inv()
-                delta_axis_angle = delta_rot.as_rotvec()
-                
-                # Scale down the deltas for smooth motion (OSC gain)
-                pos_gain = self.pos_gain  # Position gain from instance variable
-                ori_gain = self.ori_gain  # Orientation gain from instance variable
-                
-                pos_delta_scaled = pos_delta * pos_gain
-                ori_delta_scaled = delta_axis_angle * ori_gain
-                
-                # Create OSC delta action: [dx, dy, dz, drx, dry, drz, gripper]
-                # Keep gripper unchanged (0.0)
-                delta_action = np.concatenate([pos_delta_scaled, ori_delta_scaled, [0.0]])
-                
-                # Execute action and check for episode termination
-                try:
-                    obs, reward, done, info = self.env.step(delta_action)
-                    
-                    # Record frame during motion planning (if video recording is enabled)
-                    # Access pipeline through the environment's parent pipeline
-                    if hasattr(self.env, 'pipeline') and hasattr(self.env.pipeline, '_record_frame'):
-                        self.env.pipeline._record_frame(obs)
-                    
-                    # Check if episode terminated during motion planning
-                    if done:
-                        print(f"   ⚠️ Environment episode terminated at step {i}/{num_steps}")
-                        print(f"   🔄 Resetting environment to continue...")
-                        # Reset environment and break out of the interpolation
-                        obs = self.env.reset()
-                        return False, obs  # Motion planning failed due to episode termination
-                        
-                except Exception as e:
-                    print(f"   ❌ Motion planning failed at step {i}/{num_steps}: {e}")
-                    return False, obs
-                
-                # Debug logging every 10 steps
-                if i % 10 == 0 or i == num_steps:
-                    curr_pos_check, _ = self._get_ee_pose_from_simulation()
-                    if curr_pos_check is not None:
-                        print(f"   Step {i:2d}/{num_steps}: pos=[{curr_pos_check[0]:.4f}, {curr_pos_check[1]:.4f}, {curr_pos_check[2]:.4f}]")
-            
-            # Final pose check
-            final_pos, final_quat = self._get_ee_pose_from_simulation()
-            if final_pos is not None:
-                pos_error = np.linalg.norm(final_pos - target_ee_pos)
-                print(f"   ✅ Final EE:   pos=[{final_pos[0]:.4f}, {final_pos[1]:.4f}, {final_pos[2]:.4f}], error={pos_error:.4f}m")
-            
-            print(f"   ✅ Cartesian Linear Interpolation completed")
-            return True, obs
-            
-        except Exception as e:
-            print(f"   ❌ Cartesian Linear Interpolation failed: {e}")
-            import traceback
-            traceback.print_exc()
-            return False, None
 
 
 def execute_post_actions(skill_language: str, env) -> bool:
@@ -1252,16 +867,11 @@ class LongHorizonPipeline:
                 print(f"❌ Task not found in benchmark")
                 return False
             
-            # Create environment
-            self.env, _ = get_libero_env(target_task, model_family='openvla', resolution=256)
+            # Create environment with extended horizon for long horizon tasks
+            self.env, _ = get_libero_env(target_task, model_family='openvla', resolution=256, horizon=10000)
             
             # Set pipeline reference on environment for motion planner access
             self.env.pipeline = self
-            
-            # Set higher horizon for long horizon tasks
-            if hasattr(self.env, 'env') and hasattr(self.env.env, 'horizon'):
-                self.env.env.horizon = 10000  # Increase episode length for long horizon tasks
-                print(f"✅ Set environment horizon to 10000 steps for long horizon tasks")
             obs = self.env.reset()
             
             # Save debug image: reset position
@@ -1314,7 +924,7 @@ class LongHorizonPipeline:
         
         # Step 0.5: Stabilize objects with dummy actions
         print(f"\n🔧 Stabilizing objects in environment...")
-        dummy_action = np.zeros(7)  # 7-DOF action for robot
+        dummy_action = np.array([0, 0, 0, 0, 0, 0, -1])  # 6-DOF + gripper open
         for i in range(5):
             obs, _, _, _ = self.env.step(dummy_action)
             if self.record_video:
@@ -1434,7 +1044,7 @@ class LongHorizonPipeline:
                         'status': 'success'
                     })
                     # Use dummy action to get current observation
-                    dummy_action = np.zeros(7)
+                    dummy_action = np.array([0, 0, 0, 0, 0, 0, -1])  # 6-DOF + gripper open
                     obs, _, _, _ = self.env.step(dummy_action)
                     self._save_pose_images(obs, i, skill_language)
                     skill_success = True  # Mark as success for visualization mode

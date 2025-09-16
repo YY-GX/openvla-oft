@@ -1,0 +1,26 @@
+{
+  "task_name": "Complete Kitchen Organization",
+  "planning_method": "simple_fixed_task_planner",
+  "timestamp": "/mnt/arc/yygx/pkgs_baselines/openvla-oft",
+  "skills_sequence": [
+    "pick black bowl",
+    "place black bowl on the plate 1",
+    "pick white bowl",
+    "place white bowl on the plate 2",
+    "open the top drawer of the cabinet 1",
+    "place ketchup in top drawer of the cabinet 1",
+    "close the top drawer of the cabinet 1"
+  ],
+  "skill_dataset_paths": {
+    "pick black bowl": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_black_bowl_combined.hdf5",
+    "place black bowl on the plate 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_black_bowl_on_the_plate_combined.hdf5",
+    "pick white bowl": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_white_bowl_combined.hdf5",
+    "place white bowl on the plate 2": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_white_bowl_on_the_plate_combined.hdf5",
+    "open the top drawer of the cabinet 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/open_the_top_drawer_of_the_cabinet_combined.hdf5",
+    "place ketchup in top drawer of the cabinet 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_ketchup_in_top_drawer_of_the_cabinet_combined.hdf5",
+    "close the top drawer of the cabinet 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/close_the_top_drawer_of_the_cabinet_combined.hdf5"
+  },
+  "total_skills": 7,
+  "mapped_skills": 7,
+  "missing_skills": []
+}

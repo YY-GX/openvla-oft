@@ -1,0 +1,15 @@
+Motion Planner Inaccuracy Analysis Summary
+Generated: 2025-09-15T15:34:36.983651
+Samples: 70
+
+Position Error Statistics (m):
+  Mean: [0.0013, 0.0015, 0.0014]
+  Std:  [0.0107, 0.0116, 0.0120]
+
+Orientation Error Statistics:
+  Mean: 2.25°
+  Std:  0.73°
+
+Recommended Pose Shift Parameters:
+  Position Std: [0.026673337496929593, 0.028957505529282668, 0.029955066735380467]
+  Orientation Std: 1.82°

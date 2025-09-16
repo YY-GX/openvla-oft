@@ -1,0 +1,24 @@
+{
+  "task_name": "Switch Table Objects",
+  "planning_method": "simple_fixed_task_planner",
+  "timestamp": "/mnt/arc/yygx/pkgs_baselines/openvla-oft",
+  "skills_sequence": [
+    "open the bottom drawer of the cabinet 1",
+    "pick black bowl",
+    "place black bowl on the plate 1",
+    "pick wine bottle",
+    "place wine bottle in the bottom drawer of the cabinet 1",
+    "close the bottom drawer of the cabinet 1"
+  ],
+  "skill_dataset_paths": {
+    "open the bottom drawer of the cabinet 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/open_the_bottom_drawer_of_the_cabinet_combined.hdf5",
+    "pick black bowl": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_black_bowl_combined.hdf5",
+    "place black bowl on the plate 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_black_bowl_on_the_plate_combined.hdf5",
+    "pick wine bottle": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_wine_bottle_combined.hdf5",
+    "place wine bottle in the bottom drawer of the cabinet 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/place_wine_bottle_in_bottom_drawer_of_the_cabinet_combined.hdf5",
+    "close the bottom drawer of the cabinet 1": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/close_the_bottom_drawer_of_the_cabinet_combined.hdf5"
+  },
+  "total_skills": 6,
+  "mapped_skills": 6,
+  "missing_skills": []
+}

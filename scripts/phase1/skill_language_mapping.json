@@ -1,0 +1,158 @@
+{
+  "close the bottom drawer of the cabinet 1": {
+    "language_instruction": "close the bottom drawer of the cabinet 1",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "close the top drawer of the cabinet 1": {
+    "language_instruction": "close the top drawer of the cabinet 1",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "open the bottom drawer of the cabinet 1": {
+    "language_instruction": "open the bottom drawer of the cabinet 1",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "open the microwave 1": {
+    "language_instruction": "open the microwave 1",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "open the top drawer of the cabinet 1": {
+    "language_instruction": "open the top drawer of the cabinet 1",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "pick black bowl": {
+    "language_instruction": "pick black bowl",
+    "skill_type": "pick",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "pick frying pan": {
+    "language_instruction": "pick frying pan",
+    "skill_type": "pick",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "pick moka pot": {
+    "language_instruction": "pick moka pot",
+    "skill_type": "pick",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "pick white bowl": {
+    "language_instruction": "pick white bowl",
+    "skill_type": "pick",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "pick wine bottle": {
+    "language_instruction": "pick wine bottle",
+    "skill_type": "pick",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "place black bowl on the plate 1": {
+    "language_instruction": "place black bowl on the plate 1",
+    "skill_type": "place",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "place frying pan on the stove 1": {
+    "language_instruction": "place frying pan on the stove 1",
+    "skill_type": "place",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "place ketchup in top drawer of the cabinet 1": {
+    "language_instruction": "place ketchup in top drawer of the cabinet 1",
+    "skill_type": "place",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "place moka pot on the stove 2": {
+    "language_instruction": "place moka pot on the stove 2",
+    "skill_type": "place",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "place white bowl on the plate 2": {
+    "language_instruction": "place white bowl on the plate 2",
+    "skill_type": "place",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "place wine bottle in the bottom drawer of the cabinet 1": {
+    "language_instruction": "place wine bottle in the bottom drawer of the cabinet 1",
+    "skill_type": "place",
+    "requires_object": true,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "turn on the stove 1": {
+    "language_instruction": "turn on the stove 1",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "turn on the stove 2": {
+    "language_instruction": "turn on the stove 2",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "open the top drawer of the cabinet": {
+    "language_instruction": "open the top drawer of the cabinet",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "close the top drawer of the cabinet": {
+    "language_instruction": "close the top drawer of the cabinet",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "open the bottom drawer of the cabinet": {
+    "language_instruction": "open the bottom drawer of the cabinet",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "close the bottom drawer of the cabinet": {
+    "language_instruction": "close the bottom drawer of the cabinet",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "open the microwave": {
+    "language_instruction": "open the microwave",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "close the microwave": {
+    "language_instruction": "close the microwave",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "turn on the stove": {
+    "language_instruction": "turn on the stove",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  },
+  "turn off the stove": {
+    "language_instruction": "turn off the stove",
+    "skill_type": "atomic",
+    "requires_object": false,
+    "status": "TODO_FILL_MANUALLY"
+  }
+}

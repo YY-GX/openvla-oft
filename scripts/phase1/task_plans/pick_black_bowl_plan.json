@@ -1,0 +1,14 @@
+{
+  "task_name": "Pick Black Bowl",
+  "planning_method": "simple_fixed_task_planner",
+  "timestamp": "/mnt/arc/yygx/pkgs_baselines/openvla-oft",
+  "skills_sequence": [
+    "pick black bowl"
+  ],
+  "skill_dataset_paths": {
+    "pick black bowl": "datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills_combined/pick_black_bowl_combined.hdf5"
+  },
+  "total_skills": 1,
+  "mapped_skills": 1,
+  "missing_skills": []
+}
