@@ -1236,7 +1236,7 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
                 # Save failure video in debug modes with whatever steps were collected
                 if args.debug or args.debug_skill:
                     debug_video_dir = os.path.join(args.output_dir, "debug_videos")
-                    save_debug_videos(collected_steps, skill_name, "original", f"demo_{i}", debug_video_dir, is_failure=True)
+                    save_debug_videos(collected_steps, skill_name, "original", demo_key, debug_video_dir, is_failure=True)
 
         env.close()
 
