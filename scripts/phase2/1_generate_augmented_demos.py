@@ -966,7 +966,7 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
 
                     # Phase 2: Apply pose shifting augmentation (multiple iterations)
                     if not args.disable_augmentation:
-                        num_iterations = 2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations)
+                        num_iterations = args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations
                         for iteration in range(num_iterations):
                             print(f"\n🔄 Augmentation iteration {iteration + 1}/{num_iterations} for {demo_key}")
                             augmented_demos, augmentation_metadata = apply_pose_shifting_augmentation(
@@ -983,13 +983,13 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
                     # Save failure video in debug modes with whatever steps were collected
                     if args.debug or args.debug_skill:
                         debug_video_dir = os.path.join(args.output_dir, "debug_videos")
-                        save_debug_videos(full_trajectory, skill_name, "original", f"demo_{i}", debug_video_dir, is_failure=True)
+                        save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir, is_failure=True)
             else:
                 print(f"❌ Original demo FAILURE: {demo_key} - replay unsuccessful")
                 # Save failure video in debug modes with whatever steps were collected
                 if args.debug or args.debug_skill:
                     debug_video_dir = os.path.join(args.output_dir, "debug_videos")
-                    save_debug_videos(full_trajectory, skill_name, "original", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir)
 
         env.close()
 
@@ -1019,7 +1019,7 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
             if args.debug:
                 debug_video_dir = os.path.join(args.output_dir, "debug_videos")
                 for i, demo_steps in enumerate(original_successful_demos):
-                    save_debug_videos(demo_steps, skill_name, "original", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(demo_steps, skill_name, "original", f"demo_{demo_idx}", debug_video_dir)
 
             success_messages.append(f"original demos: {len(original_successful_demos)}")
 
@@ -1046,14 +1046,14 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
             if args.debug:
                 debug_video_dir = os.path.join(args.output_dir, "debug_videos")
                 for i, demo_steps in enumerate(all_augmented_demos):
-                    save_debug_videos(demo_steps, skill_name, "augmented", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(demo_steps, skill_name, "augmented", f"demo_{demo_idx}", debug_video_dir)
 
             success_messages.append(f"augmented demos: {len(all_augmented_demos)}")
 
         if original_successful_demos or all_augmented_demos:
             # Calculate success rates
             original_success_rate = len(original_successful_demos) / len(demo_keys) if demo_keys else 0
-            total_possible_augmented = len(demo_keys) * (2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations))
+            total_possible_augmented = len(demo_keys) * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
             augmented_success_rate = len(all_augmented_demos) / total_possible_augmented if total_possible_augmented > 0 else 0
 
             print(f"📊 Success rates for {skill_name}:")
@@ -1217,7 +1217,7 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
                 # Phase 2: Apply pose shifting augmentation (multiple iterations)
                 # For place skills, use the actual completion step as trigger and calculate proper start_idx
                 if not args.disable_augmentation:
-                    num_iterations = 2 if args.debug else args.num_augmentation_iterations
+                    num_iterations = args.debug_num_iterations if args.debug else args.num_augmentation_iterations
                     for iteration in range(num_iterations):
                         print(f"\n🔄 Augmentation iteration {iteration + 1}/{num_iterations} for {demo_key}")
                         # For place skills: trigger = completion step, start_idx = completion - place_offset
@@ -1266,7 +1266,7 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
             if args.debug:
                 debug_video_dir = os.path.join(args.output_dir, "debug_videos")
                 for i, demo_steps in enumerate(original_successful_demos):
-                    save_debug_videos(demo_steps, skill_name, "original", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(demo_steps, skill_name, "original", f"demo_{demo_idx}", debug_video_dir)
 
             success_messages.append(f"original demos: {len(original_successful_demos)}")
 
@@ -1293,14 +1293,14 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
             if args.debug:
                 debug_video_dir = os.path.join(args.output_dir, "debug_videos")
                 for i, demo_steps in enumerate(all_augmented_demos):
-                    save_debug_videos(demo_steps, skill_name, "augmented", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(demo_steps, skill_name, "augmented", f"demo_{demo_idx}", debug_video_dir)
 
             success_messages.append(f"augmented demos: {len(all_augmented_demos)}")
 
         if original_successful_demos or all_augmented_demos:
             # Calculate success rates
             original_success_rate = len(original_successful_demos) / len(demo_keys) if demo_keys else 0
-            total_possible_augmented = len(demo_keys) * (2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations))
+            total_possible_augmented = len(demo_keys) * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
             augmented_success_rate = len(all_augmented_demos) / total_possible_augmented if total_possible_augmented > 0 else 0
 
             print(f"📊 Success rates for {skill_name}:")
@@ -1355,9 +1355,9 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
         
         demo_keys = list(demo_data['data'].keys())
         if args.debug_skill:
-            demo_keys = demo_keys[:5]  # Process only 5 demos in debug skill mode
+            demo_keys = demo_keys[:args.debug_num_demos]
         elif args.debug:
-            demo_keys = demo_keys[:1]  # Process only 1 demo in debug mode
+            demo_keys = demo_keys[:args.debug_num_demos]
         
         print(f"📊 Found {len(demo_keys)} demonstrations")
         
@@ -1456,7 +1456,7 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
 
                     # Phase 2: Apply pose shifting augmentation (multiple iterations)
                     if not args.disable_augmentation:
-                        num_iterations = 2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations)
+                        num_iterations = args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations
                         for iteration in range(num_iterations):
                             print(f"\n🔄 Augmentation iteration {iteration + 1}/{num_iterations} for {demo_key}")
                             augmented_demos, augmentation_metadata = apply_pose_shifting_augmentation(
@@ -1473,13 +1473,13 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
                     # Save failure video in debug modes with whatever steps were collected
                     if args.debug or args.debug_skill:
                         debug_video_dir = os.path.join(args.output_dir, "debug_videos")
-                        save_debug_videos(full_trajectory, skill_name, "original", f"demo_{i}", debug_video_dir, is_failure=True)
+                        save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir, is_failure=True)
             else:
                 print(f"❌ Original demo FAILURE: {demo_key} - replay unsuccessful")
                 # Save failure video in debug modes with whatever steps were collected
                 if args.debug or args.debug_skill:
                     debug_video_dir = os.path.join(args.output_dir, "debug_videos")
-                    save_debug_videos(full_trajectory, skill_name, "original", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir)
         
         env.close()
 
@@ -1509,7 +1509,7 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
             if args.debug:
                 debug_video_dir = os.path.join(args.output_dir, "debug_videos")
                 for i, demo_steps in enumerate(original_successful_demos):
-                    save_debug_videos(demo_steps, skill_name, "original", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(demo_steps, skill_name, "original", f"demo_{demo_idx}", debug_video_dir)
 
             success_messages.append(f"original demos: {len(original_successful_demos)}")
 
@@ -1536,14 +1536,14 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
             if args.debug:
                 debug_video_dir = os.path.join(args.output_dir, "debug_videos")
                 for i, demo_steps in enumerate(all_augmented_demos):
-                    save_debug_videos(demo_steps, skill_name, "augmented", f"demo_{i}", debug_video_dir)
+                    save_debug_videos(demo_steps, skill_name, "augmented", f"demo_{demo_idx}", debug_video_dir)
 
             success_messages.append(f"augmented demos: {len(all_augmented_demos)}")
 
         if original_successful_demos or all_augmented_demos:
             # Calculate success rates
             original_success_rate = len(original_successful_demos) / len(demo_keys) if demo_keys else 0
-            total_possible_augmented = len(demo_keys) * (2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations))
+            total_possible_augmented = len(demo_keys) * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
             augmented_success_rate = len(all_augmented_demos) / total_possible_augmented if total_possible_augmented > 0 else 0
 
             print(f"📊 Success rates for {skill_name}:")
@@ -1987,7 +1987,7 @@ Examples:
 
             # Show augmentation success rate for demos with triggers found
             if stats['original_demos'] > 0:
-                augmentation_attempts_with_trigger = stats['original_demos'] * (2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations))
+                augmentation_attempts_with_trigger = stats['original_demos'] * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
                 augmentation_success_rate_with_trigger = stats['augmented_demos'] / augmentation_attempts_with_trigger if augmentation_attempts_with_trigger > 0 else 0
                 print(f"  Augmentation success (trigger found): {stats['augmented_demos']}/{augmentation_attempts_with_trigger} ({augmentation_success_rate_with_trigger:.1%})")
 
@@ -1999,7 +1999,7 @@ Examples:
 
         # Calculate success rate for demos where trigger was found
         if total_trigger_found_demos > 0:
-            augmentation_attempts_with_triggers = total_trigger_found_demos * (2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations))
+            augmentation_attempts_with_triggers = total_trigger_found_demos * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
             augmentation_success_rate_with_triggers = total_augmented_demos / augmentation_attempts_with_triggers
             print(f"Augmentation success rate (trigger found): {total_augmented_demos}/{augmentation_attempts_with_triggers} ({augmentation_success_rate_with_triggers:.1%})")
 
