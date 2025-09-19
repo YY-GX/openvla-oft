@@ -493,11 +493,11 @@ def test_simple_comparison_setup(cfg: GenerateConfig):
 
 def simple_comparison_mode(cfg: GenerateConfig):
     """
-    Simple comparison mode: Run 1 trial per skill, save 2 videos (with/without pose shifts).
+    Simple comparison mode: Run num_trials_per_task trials per skill, save videos (with/without pose shifts).
     """
     import random  # Import random for selecting initial states
-    
-    print("🎬 SIMPLE COMPARISON MODE: Running 1 trial per skill with/without pose shifts")
+
+    print(f"🎬 SIMPLE COMPARISON MODE: Running {cfg.num_trials_per_task} trials per skill with/without pose shifts")
     print("=" * 80)
     
     # Early test mode - just verify environment loading and pose shifting
@@ -531,92 +531,136 @@ def simple_comparison_mode(cfg: GenerateConfig):
     model, action_head, proprio_projector, noisy_action_projector, processor = initialize_model(cfg)
     resize_size = get_image_resize_size(cfg)
     
+    # Track overall results
+    total_success_baseline = 0
+    total_success_shifted = 0
+    total_trials = 0
+
     for task_id in task_id_ls:
         task = task_suite.get_task(task_id)
         task_name = task.name
         print(f"\n🎯 Processing task: {task_name}")
         print("-" * 60)
-        
+
+        # Track results for this task
+        task_success_baseline = 0
+        task_success_shifted = 0
+
         try:
-            # Create environment
-            env, task_description = get_libero_env(task, cfg.model_family, resolution=cfg.env_img_res, horizon=10000)
-            
-            # Load initial states
+            # Load initial states once per task
             initial_states, all_initial_states = load_initial_states(cfg, task_suite, task_id, None)
             if not all_initial_states:
                 print(f"❌ No initial states found for {task_name}")
-                env.close()
                 continue
-            
-            # Select random initial state
-            selected_initial_state = random.choice(all_initial_states)
-            
-            # Run WITHOUT pose shifting
-            print("📹 Running WITHOUT pose shifting...")
-            obs = run_without_pose_shifts(env, selected_initial_state)
-            if obs is not None:
-                # Create temporary cfg with pose shifts disabled for baseline
-                baseline_cfg = cfg
-                baseline_cfg.enable_pose_shifts = False
-                
-                success_baseline, replay_images_baseline, obs_list_baseline, actions_baseline = run_episode(
-                    baseline_cfg, env, task_name, task_description, model, resize_size, 
-                    processor, action_head, proprio_projector, noisy_action_projector
-                )
-                
-                # Save baseline video using imageio directly since save_rollout_video has different signature
-                baseline_video_path = comparison_dir / f"{task_name}_baseline.mp4"
-                import imageio
-                video_writer = imageio.get_writer(str(baseline_video_path), fps=30)
-                for obs in obs_list_baseline:
-                    # Use agent view image for video
-                    video_writer.append_data(obs['agentview_image'])
-                video_writer.close()
-                print(f"   💾 Saved baseline video: {baseline_video_path}")
-            
-            # Reset environment for second run
-            env.close()
-            env, _ = get_libero_env(task, cfg.model_family, resolution=cfg.env_img_res, horizon=10000)
-            
-            # Run WITH pose shifting
-            print("📹 Running WITH pose shifting...")
-            obs = run_with_pose_shifts(env, selected_initial_state, task_name, cfg)
-            if obs is not None:
-                # Create temporary cfg with pose shifts enabled for shifted run
-                shifted_cfg = cfg
-                shifted_cfg.enable_pose_shifts = True
-                
-                success_shifted, replay_images_shifted, obs_list_shifted, actions_shifted = run_episode(
-                    shifted_cfg, env, task_name, task_description, model, resize_size,
-                    processor, action_head, proprio_projector, noisy_action_projector
-                )
-                
-                # Save shifted video using imageio directly
-                shifted_video_path = comparison_dir / f"{task_name}_shifted.mp4"
-                video_writer = imageio.get_writer(str(shifted_video_path), fps=30)
-                for obs in obs_list_shifted:
-                    # Use agent view image for video
-                    video_writer.append_data(obs['agentview_image'])
-                video_writer.close()
-                print(f"   💾 Saved shifted video: {shifted_video_path}")
-                
-                # Print results
-                print(f"   📊 Results:")
-                print(f"      Baseline: {'✅ SUCCESS' if success_baseline else '❌ FAILURE'}")
-                print(f"      Shifted:  {'✅ SUCCESS' if success_shifted else '❌ FAILURE'}")
-            
-            env.close()
-            
+
+            # Run multiple trials for this task
+            for trial_idx in range(cfg.num_trials_per_task):
+                print(f"\n📋 Trial {trial_idx + 1}/{cfg.num_trials_per_task} for {task_name}")
+                print("-" * 40)
+
+                # Create environment for this trial
+                env, task_description = get_libero_env(task, cfg.model_family, resolution=cfg.env_img_res, horizon=10000)
+
+                # Select random initial state for this trial
+                selected_initial_state = random.choice(all_initial_states)
+
+                # Run WITHOUT pose shifting
+                print("📹 Running WITHOUT pose shifting...")
+                obs = run_without_pose_shifts(env, selected_initial_state)
+                success_baseline = False
+                if obs is not None:
+                    # Create temporary cfg with pose shifts disabled for baseline
+                    baseline_cfg = cfg
+                    baseline_cfg.enable_pose_shifts = False
+
+                    success_baseline, replay_images_baseline, obs_list_baseline, actions_baseline = run_episode(
+                        baseline_cfg, env, task_name, task_description, model, resize_size,
+                        processor, action_head, proprio_projector, noisy_action_projector
+                    )
+
+                    # Save baseline video for first trial only
+                    if trial_idx == 0:
+                        baseline_video_path = comparison_dir / f"{task_name}_baseline.mp4"
+                        import imageio
+                        video_writer = imageio.get_writer(str(baseline_video_path), fps=30)
+                        for obs in obs_list_baseline:
+                            # Use agent view image for video
+                            video_writer.append_data(obs['agentview_image'])
+                        video_writer.close()
+                        print(f"   💾 Saved baseline video: {baseline_video_path}")
+
+                # Reset environment for second run
+                env.close()
+                env, _ = get_libero_env(task, cfg.model_family, resolution=cfg.env_img_res, horizon=10000)
+
+                # Run WITH pose shifting
+                print("📹 Running WITH pose shifting...")
+                obs = run_with_pose_shifts(env, selected_initial_state, task_name, cfg)
+                success_shifted = False
+                if obs is not None:
+                    # Create temporary cfg with pose shifts enabled for shifted run
+                    shifted_cfg = cfg
+                    shifted_cfg.enable_pose_shifts = True
+
+                    success_shifted, replay_images_shifted, obs_list_shifted, actions_shifted = run_episode(
+                        shifted_cfg, env, task_name, task_description, model, resize_size,
+                        processor, action_head, proprio_projector, noisy_action_projector
+                    )
+
+                    # Save shifted video for first trial only
+                    if trial_idx == 0:
+                        shifted_video_path = comparison_dir / f"{task_name}_shifted.mp4"
+                        video_writer = imageio.get_writer(str(shifted_video_path), fps=30)
+                        for obs in obs_list_shifted:
+                            # Use agent view image for video
+                            video_writer.append_data(obs['agentview_image'])
+                        video_writer.close()
+                        print(f"   💾 Saved shifted video: {shifted_video_path}")
+
+                # Track results for this trial
+                if success_baseline:
+                    task_success_baseline += 1
+                    total_success_baseline += 1
+                if success_shifted:
+                    task_success_shifted += 1
+                    total_success_shifted += 1
+                total_trials += 1
+
+                print(f"   📊 Trial {trial_idx + 1} results: Baseline={'✅' if success_baseline else '❌'}, Shifted={'✅' if success_shifted else '❌'}")
+
+                # Close environment after trial
+                env.close()
+
+            # Print task summary
+            baseline_rate = task_success_baseline / cfg.num_trials_per_task
+            shifted_rate = task_success_shifted / cfg.num_trials_per_task
+            print(f"\n📊 Task Summary for {task_name}:")
+            print(f"   Baseline: {task_success_baseline}/{cfg.num_trials_per_task} ({baseline_rate:.1%})")
+            print(f"   Shifted:  {task_success_shifted}/{cfg.num_trials_per_task} ({shifted_rate:.1%})")
+            if baseline_rate > shifted_rate:
+                print(f"   🎯 Good candidate for augmentation! (baseline works, shifts fail)")
+            elif baseline_rate == shifted_rate:
+                print(f"   ✅ Already robust to pose shifts")
+            else:
+                print(f"   ⚠️  Unexpected: shifted performs better than baseline")
+
         except Exception as e:
             print(f"❌ Error processing {task_name}: {e}")
             import traceback
             traceback.print_exc()
-            try:
-                env.close()
-            except:
-                pass
     
+    # Print overall summary
+    overall_baseline_rate = total_success_baseline / total_trials if total_trials > 0 else 0
+    overall_shifted_rate = total_success_shifted / total_trials if total_trials > 0 else 0
+
     print(f"\n🎬 SIMPLE COMPARISON COMPLETED")
+    print("=" * 80)
+    print(f"📊 Overall Results:")
+    print(f"   Total tasks evaluated: {len(task_id_ls)}")
+    print(f"   Total trials: {total_trials}")
+    print(f"   Baseline success rate: {total_success_baseline}/{total_trials} ({overall_baseline_rate:.1%})")
+    print(f"   Shifted success rate:  {total_success_shifted}/{total_trials} ({overall_shifted_rate:.1%})")
+    print(f"   Robustness gap: {overall_baseline_rate - overall_shifted_rate:.1%}")
     print(f"📁 Videos saved in: {comparison_dir}")
     return
 

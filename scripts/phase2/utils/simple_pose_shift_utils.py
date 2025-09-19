@@ -49,49 +49,12 @@ def collect_step_data(action: np.ndarray, obs: Dict, reward: float, done: bool, 
     return step_data
 
 
-def extract_ee_pose_from_initial_state(initial_state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Extract end-effector pose from initial state array.
-
-    Args:
-        initial_state: Initial state array [joint(7) + gripper(2) + sim_state(...)]
-
-    Returns:
-        Tuple of (position, quaternion) extracted from sim_state
-    """
-    # Skip joint states (7) and gripper states (2), extract from sim_state
-    sim_state = initial_state[9:]
-
-    # For LIBERO, EE pose is typically at the beginning of sim_state
-    # Position: first 3 elements, Quaternion: next 4 elements
-    if len(sim_state) < 7:
-        raise ValueError(f"Sim state too short: {len(sim_state)} < 7")
-
-    position = sim_state[:3].copy()
-    quaternion = sim_state[3:7].copy()
-
-    return position, quaternion
-
-
-def extract_ee_poses_from_initial_states(initial_states: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Extract all EE poses from list of initial states.
-
-    Args:
-        initial_states: List of initial state arrays
-
-    Returns:
-        Tuple of (positions, quaternions) arrays of shape (N, 3) and (N, 4)
-    """
-    positions = []
-    quaternions = []
-
-    for state in initial_states:
-        pos, quat = extract_ee_pose_from_initial_state(state)
-        positions.append(pos)
-        quaternions.append(quat)
-
-    return np.array(positions), np.array(quaternions)
+# NOTE: extract_ee_pose_from_initial_state() function removed
+# EE pose should be obtained directly from environment observations using:
+# obs = env.env._get_observations()
+# ee_pos = obs['robot0_eef_pos']
+# ee_quat = obs['robot0_eef_quat']
+# This is more reliable than trying to extract from initial state arrays.
 
 
 def generate_shifted_pose(target_pose: Tuple[np.ndarray, np.ndarray],
@@ -169,7 +132,8 @@ def find_family_pose(shifted_pose: Tuple[np.ndarray, np.ndarray],
                     current_skill_initial_states: List[np.ndarray],
                     original_pose: Tuple[np.ndarray, np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Find family pose - super simple: just return the original pose.
+    Find family pose - simplified version that just returns the original pose.
+    This is appropriate since the evaluation is designed to compare shifted vs original poses.
 
     Args:
         shifted_pose: (position, quaternion) - the shifted target pose (not used)
@@ -185,32 +149,8 @@ def find_family_pose(shifted_pose: Tuple[np.ndarray, np.ndarray],
         print(f"   📍 Family pose: pos=[{original_position[0]:.3f}, {original_position[1]:.3f}, {original_position[2]:.3f}]")
         return original_position, original_quaternion
 
-    # Fallback to old behavior if original_pose not provided
-    if len(current_skill_initial_states) == 0:
-        raise ValueError("No initial states provided")
-
-    shifted_position, shifted_quaternion = shifted_pose
-
-    # Extract EE poses from initial states
-    positions, quaternions = extract_ee_poses_from_initial_states(current_skill_initial_states)
-
-    # Find closest initial state pose
-    min_distance = float('inf')
-    closest_idx = 0
-
-    for i, (pos, quat) in enumerate(zip(positions, quaternions)):
-        distance = compute_pose_distance(shifted_position, shifted_quaternion, pos, quat)
-        if distance < min_distance:
-            min_distance = distance
-            closest_idx = i
-
-    family_position = positions[closest_idx]
-    family_quaternion = quaternions[closest_idx]
-
-    print(f"✅ Selected closest family pose from initial state {closest_idx}")
-    print(f"   📏 Distance to shifted pose: {min_distance:.3f}")
-
-    return family_position, family_quaternion
+    # If no original pose provided, this is an error in the calling code
+    raise ValueError("original_pose must be provided. EE poses should be obtained from environment observations, not initial states.")
 
 
 def load_initial_states_for_skill(skill_name: str,
@@ -225,17 +165,33 @@ def load_initial_states_for_skill(skill_name: str,
     Returns:
         List of initial state arrays for the skill
     """
-    init_file_path = f"{atomic_demos_path}/{skill_name}.init"
+    # Try different init file formats based on use case
+    original_init_path = f"{atomic_demos_path}/{skill_name}_original.init"
+    plain_init_path = f"{atomic_demos_path}/{skill_name}.init"
 
     try:
+        # For evaluation: prefer _original.init files (corrected initial states)
+        # For augmented demo generation: fallback to plain .init files
+        if "atomic_local_demos_augmented" in atomic_demos_path and os.path.exists(original_init_path):
+            # Evaluation context - use only original init files
+            init_file_path = original_init_path
+        elif os.path.exists(original_init_path):
+            # Prefer original if available
+            init_file_path = original_init_path
+        elif os.path.exists(plain_init_path):
+            # Fallback to plain init files for augmented demo generation
+            init_file_path = plain_init_path
+        else:
+            raise FileNotFoundError(f"No init file found for {skill_name}: tried {original_init_path} and {plain_init_path}")
+
         with open(init_file_path, 'rb') as f:
             initial_states = pickle.load(f)
 
-        print(f"📁 Loaded {len(initial_states)} initial states for skill: {skill_name}")
+        print(f"📁 Loaded {len(initial_states)} initial states for skill: {skill_name} from {os.path.basename(init_file_path)}")
         return initial_states
 
     except FileNotFoundError:
-        raise FileNotFoundError(f"Initial states file not found: {init_file_path}")
+        raise FileNotFoundError(f"Initial states file not found for skill: {skill_name}")
     except Exception as e:
         raise RuntimeError(f"Error loading initial states: {e}")
 
@@ -244,78 +200,37 @@ if __name__ == "__main__":
     # Example usage and testing
     print("🧪 Testing simple pose shifting utilities...")
 
-    # Test with a sample skill
-    skill_name = "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet"
+    # Note: Full testing requires environment setup and observations
+    # Basic pose shifting can be tested with dummy poses
+    print("📋 Testing pose shifting with dummy target pose...")
 
-    try:
-        # Load initial states
-        initial_states = load_initial_states_for_skill(skill_name)
-        positions, quaternions = extract_ee_poses_from_initial_states(initial_states)
+    # Create a dummy target pose
+    target_position = np.array([0.0, 0.0, 1.0])
+    target_quaternion = np.array([0.0, 0.0, 0.0, 1.0])  # Identity quaternion
+    target_pose = (target_position, target_quaternion)
 
-        # Test with 5 different initial states
-        num_tests = min(5, len(initial_states))
-        print(f"🔄 Testing with {num_tests} different initial states:")
+    # Test with different shift parameters
+    shift_configs = [
+        (0.02, np.radians(30)),  # ±2cm, ±30°
+        (0.05, np.radians(45)),  # ±5cm, ±45°
+        (0.1, np.radians(60)),   # ±10cm, ±60°
+    ]
 
-        for i in range(num_tests):
-            target_pose = (positions[i], quaternions[i])
+    for i, (pos_range, ori_range) in enumerate(shift_configs):
+        print(f"\n📋 Test {i+1}: pos_range=±{pos_range*100:.0f}cm, ori_range=±{np.degrees(ori_range):.0f}°")
 
-            # Convert target orientation to axis-angle degrees
-            target_rot = R.from_quat(target_pose[1])
-            target_axis = target_rot.as_rotvec()
-            target_axis_deg = np.degrees(target_axis)
+        shifted_pose = generate_shifted_pose(target_pose, pos_range, ori_range)
+        shifted_pos, shifted_quat = shifted_pose
 
-            print(f"\n📋 Test {i+1}/5 - Initial State {i}")
-            print(f"   Target: pos=[{target_pose[0][0]:.3f}, {target_pose[0][1]:.3f}, {target_pose[0][2]:.3f}], axis=[{target_axis_deg[0]:.1f}°, {target_axis_deg[1]:.1f}°, {target_axis_deg[2]:.1f}°]")
+        pos_diff = np.linalg.norm(shifted_pos - target_position)
 
-            # Generate shifted pose with default parameters
-            shifted_pose = generate_shifted_pose(target_pose)
+        print(f"   Target:  pos=[{target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f}]")
+        print(f"   Shifted: pos=[{shifted_pos[0]:.3f}, {shifted_pos[1]:.3f}, {shifted_pos[2]:.3f}] | Δ={pos_diff*100:.1f}cm")
 
-            # Convert shifted orientation to axis-angle degrees
-            shifted_rot = R.from_quat(shifted_pose[1])
-            shifted_axis = shifted_rot.as_rotvec()
-            shifted_axis_deg = np.degrees(shifted_axis)
+        # Test family pose (should return original pose)
+        family_pose = find_family_pose(shifted_pose, [], target_pose)
+        family_pos, family_quat = family_pose
+        print(f"   Family:  pos=[{family_pos[0]:.3f}, {family_pos[1]:.3f}, {family_pos[2]:.3f}]")
 
-            # Calculate differences
-            pos_diff = np.linalg.norm(shifted_pose[0] - target_pose[0])
-            relative_rot = shifted_rot * target_rot.inv()
-            ori_diff_degrees = np.degrees(relative_rot.magnitude())
-
-            print(f"   Shifted: pos=[{shifted_pose[0][0]:.3f}, {shifted_pose[0][1]:.3f}, {shifted_pose[0][2]:.3f}], axis=[{shifted_axis_deg[0]:.1f}°, {shifted_axis_deg[1]:.1f}°, {shifted_axis_deg[2]:.1f}°] | Δ={pos_diff*100:.1f}cm, {ori_diff_degrees:.1f}°")
-
-            # Find family pose
-            family_pose = find_family_pose(shifted_pose, initial_states)
-            family_rot = R.from_quat(family_pose[1])
-            family_axis = family_rot.as_rotvec()
-            family_axis_deg = np.degrees(family_axis)
-            family_distance = compute_pose_distance(shifted_pose[0], shifted_pose[1], family_pose[0], family_pose[1])
-
-            print(f"   Family:  pos=[{family_pose[0][0]:.3f}, {family_pose[0][1]:.3f}, {family_pose[0][2]:.3f}], axis=[{family_axis_deg[0]:.1f}°, {family_axis_deg[1]:.1f}°, {family_axis_deg[2]:.1f}°] | dist={family_distance:.3f}")
-
-        # Test with custom parameters using first initial state
-        print(f"\n🔧 Testing custom parameters (±5cm, ±45°):")
-        target_pose = (positions[0], quaternions[0])
-
-        for i in range(3):
-            custom_shifted_pose = generate_shifted_pose(
-                target_pose,
-                position_shift_range=0.05,  # ±5cm
-                orientation_shift_range=np.radians(45)  # ±45°
-            )
-
-            # Convert custom shifted orientation to axis-angle degrees
-            custom_rot = R.from_quat(custom_shifted_pose[1])
-            custom_axis = custom_rot.as_rotvec()
-            custom_axis_deg = np.degrees(custom_axis)
-
-            pos_diff = np.linalg.norm(custom_shifted_pose[0] - target_pose[0])
-            target_rot = R.from_quat(target_pose[1])
-            relative_rot = custom_rot * target_rot.inv()
-            ori_diff_degrees = np.degrees(relative_rot.magnitude())
-
-            print(f"   Custom {i+1}: pos=[{custom_shifted_pose[0][0]:.3f}, {custom_shifted_pose[0][1]:.3f}, {custom_shifted_pose[0][2]:.3f}], axis=[{custom_axis_deg[0]:.1f}°, {custom_axis_deg[1]:.1f}°, {custom_axis_deg[2]:.1f}°] | Δ={pos_diff*100:.1f}cm, {ori_diff_degrees:.1f}°")
-
-        print(f"\n✅ Simple pose shifting utilities test completed!")
-
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-        print("💡 Make sure the atomic demos path and skill files exist")
+    print(f"\n✅ Simple pose shifting utilities test completed!")
+    print("💡 For full testing with real initial states, run within evaluation script with proper environment setup")

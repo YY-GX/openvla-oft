@@ -1,0 +1,33 @@
+VALIDATION SUMMARY REPORT
+==================================================
+Generated: 2025-09-18T17:22:55.341328
+
+OVERALL RESULTS:
+Total Skills Tested: 3
+Init Validation Passed: 3/3 (100.0%)
+Truncation Validation Passed: 3/3 (100.0%)
+Structure Validation Passed: 3/3 (100.0%)
+
+PER-SKILL DETAILS:
+------------------------------
+
+KITCHEN_SCENE1_put_the_black_bowl_on_the_plate_pick:
+  Init Validation: ✅ PASS - All 50 states match perfectly
+  Truncation: ✅ PASS - All 660 demos properly truncated (max: 60, avg: 60.0)
+  Original HDF5 Structure: ✅ PASS
+  Augmented HDF5 Structure: ✅ PASS
+  Initial Images: 3 original, 3 augmented
+
+KITCHEN_SCENE2_open_the_top_drawer_of_the_cabinet:
+  Init Validation: ✅ PASS - All 50 states match perfectly
+  Truncation: ✅ PASS - All 1070 demos properly truncated (max: 60, avg: 60.0)
+  Original HDF5 Structure: ✅ PASS
+  Augmented HDF5 Structure: ✅ PASS
+  Initial Images: 3 original, 3 augmented
+
+KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet:
+  Init Validation: ✅ PASS - All 50 states match perfectly
+  Truncation: ✅ PASS - All 655 demos properly truncated (max: 60, avg: 60.0)
+  Original HDF5 Structure: ✅ PASS
+  Augmented HDF5 Structure: ✅ PASS
+  Initial Images: 3 original, 3 augmented

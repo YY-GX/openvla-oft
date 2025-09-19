@@ -31,6 +31,9 @@ from pathlib import Path
 from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 from datetime import datetime
+import time
+import pickle
+import random
 
 # Add project paths (following Phase 1 pattern)
 import sys
@@ -85,6 +88,53 @@ def log_debug(message: str):
     """Log debug information only in debug modes."""
     if DEBUG_MODE or DEBUG_SKILL_MODE or VERBOSE:
         print(f"🐛 {message}")
+
+
+def save_checkpoint(checkpoint_path: str, processed_skills: List[str], current_skill_idx: int,
+                   total_skills: int, start_time: float, skill_timing_data: Dict):
+    """Save processing checkpoint to resume later."""
+    checkpoint_data = {
+        'processed_skills': processed_skills,
+        'current_skill_idx': current_skill_idx,
+        'total_skills': total_skills,
+        'start_time': start_time,
+        'skill_timing_data': skill_timing_data,
+        'timestamp': time.time()
+    }
+
+    try:
+        with open(checkpoint_path, 'wb') as f:
+            pickle.dump(checkpoint_data, f)
+        print(f"💾 Checkpoint saved: {len(processed_skills)}/{total_skills} skills completed")
+    except Exception as e:
+        print(f"❌ Failed to save checkpoint: {e}")
+
+
+def load_checkpoint(checkpoint_path: str) -> Optional[Dict]:
+    """Load processing checkpoint to resume."""
+    if not os.path.exists(checkpoint_path):
+        return None
+
+    try:
+        with open(checkpoint_path, 'rb') as f:
+            checkpoint_data = pickle.load(f)
+
+        processed_count = len(checkpoint_data['processed_skills'])
+        total_count = checkpoint_data['total_skills']
+
+        elapsed_time = time.time() - checkpoint_data['start_time']
+        elapsed_hours = int(elapsed_time // 3600)
+        elapsed_minutes = int((elapsed_time % 3600) // 60)
+
+        print(f"📂 Checkpoint found: {processed_count}/{total_count} skills completed")
+        print(f"   Elapsed time: {elapsed_hours}h {elapsed_minutes}m")
+        print(f"   Last saved: {datetime.fromtimestamp(checkpoint_data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}")
+
+        return checkpoint_data
+    except Exception as e:
+        print(f"❌ Failed to load checkpoint: {e}")
+        return None
+
 
 def log_success(message: str, verbose_only: bool = False):
     """Log success messages with ✅ prefix."""
@@ -409,16 +459,16 @@ def save_multiple_demos_to_hdf5(demos_data: List[Dict], output_file_path: str):
                 obs_group.create_dataset(obs_key, data=obs_data)
 
 
-def extract_and_save_initial_states_original(original_demos: List[List[Dict]], init_file_path: str, init_offset: int):
+def extract_and_save_initial_states_original(original_demos: List[List[Dict]], init_file_path: str, offset: int):
     """Extract and save initial states from original demos (same as old script)."""
     all_states = []
 
     for demo_steps in original_demos:
-        if len(demo_steps) <= init_offset:
-            print(f"Warning: Not enough steps ({len(demo_steps)}) for init_offset {init_offset}")
+        if len(demo_steps) <= offset:
+            print(f"Warning: Not enough steps ({len(demo_steps)}) for offset {offset}")
             init_idx = 0
         else:
-            init_idx = init_offset
+            init_idx = offset
 
         init_step = demo_steps[init_idx]
 
@@ -551,16 +601,16 @@ def save_video_frames(frames: List[np.ndarray], output_path: str, fps: int = 30)
 
 
 def save_initial_images_debug(collected_steps: List[Dict], skill_name: str, demo_type: str, demo_key: str,
-                             init_offset: int, output_dir: str):
+                             offset: int, output_dir: str):
     """
-    Save initial images (at init_offset) for debugging purposes in debug mode.
+    Save initial images (at offset) for debugging purposes in debug mode.
 
     Args:
         collected_steps: List of step data from a successful demo
         skill_name: Name of the skill being processed
         demo_type: Type of demo ("original" or "augmented")
         demo_key: Demo identifier
-        init_offset: The init_offset used (for filename)
+        offset: The offset used (for filename)
         output_dir: Base output directory
     """
     if not collected_steps:
@@ -571,14 +621,14 @@ def save_initial_images_debug(collected_steps: List[Dict], skill_name: str, demo
     init_images_dir = os.path.join(output_dir, "initial_images")
     os.makedirs(init_images_dir, exist_ok=True)
 
-    # Determine which step to use as "initial" based on init_offset
-    # For collected demos, the init_offset-th step represents our initial state
-    if len(collected_steps) <= init_offset:
-        # If demo is shorter than init_offset, use the first step
+    # Determine which step to use as "initial" based on offset
+    # For collected demos, the offset-th step represents our initial state
+    if len(collected_steps) <= offset:
+        # If demo is shorter than offset, use the first step
         init_step_idx = 0
-        log_verbose(f"Demo shorter than init_offset ({len(collected_steps)} <= {init_offset}), using first step")
+        log_verbose(f"Demo shorter than offset ({len(collected_steps)} <= {offset}), using first step")
     else:
-        init_step_idx = init_offset
+        init_step_idx = offset
 
     init_step = collected_steps[init_step_idx]
 
@@ -591,7 +641,7 @@ def save_initial_images_debug(collected_steps: List[Dict], skill_name: str, demo
     # Save agentview image
     if 'agentview_rgb' in obs:
         agentview_img = obs['agentview_rgb']
-        agentview_filename = f"{skill_name}_{demo_type}_{demo_key}_init{init_offset}_agentview.png"
+        agentview_filename = f"{skill_name}_{demo_type}_{demo_key}_init{offset}_agentview.png"
         agentview_path = os.path.join(init_images_dir, agentview_filename)
 
         try:
@@ -605,7 +655,7 @@ def save_initial_images_debug(collected_steps: List[Dict], skill_name: str, demo
     # Save wrist camera image
     if 'eye_in_hand_rgb' in obs:
         wrist_img = obs['eye_in_hand_rgb']
-        wrist_filename = f"{skill_name}_{demo_type}_{demo_key}_init{init_offset}_wrist.png"
+        wrist_filename = f"{skill_name}_{demo_type}_{demo_key}_init{offset}_wrist.png"
         wrist_path = os.path.join(init_images_dir, wrist_filename)
 
         try:
@@ -616,10 +666,10 @@ def save_initial_images_debug(collected_steps: List[Dict], skill_name: str, demo
         except Exception as e:
             log_verbose(f"❌ Failed to save wrist image: {e}")
 
-    log_debug(f"Initial images saved for {demo_key} ({demo_type}) with init_offset={init_offset}")
+    log_debug(f"Initial images saved for {demo_key} ({demo_type}) with offset={offset}")
 
 
-def extract_and_save_initial_states_augmented(augmented_demos: List[List[Dict]], init_file_path: str, init_offset: int):
+def extract_and_save_initial_states_augmented(augmented_demos: List[List[Dict]], init_file_path: str, offset: int):
     """Extract and save initial states from augmented demos (shifted pose as initial state)."""
     all_states = []
 
@@ -806,7 +856,14 @@ def apply_pose_shifting_augmentation(demo_data: Dict,
 
             # Save initial images in debug mode (augmented demo)
             if DEBUG_MODE or DEBUG_SKILL_MODE:
-                save_initial_images_debug(collected_steps, skill_name, "augmented", demo_key, args.init_offset, args.output_dir)
+                # Use appropriate offset based on skill type
+                if skill_type == "pick":
+                    offset = args.pick_offset
+                elif skill_type == "place":
+                    offset = args.place_offset
+                else:  # atomic
+                    offset = args.atomic_offset
+                save_initial_images_debug(collected_steps, skill_name, "augmented", demo_key, offset, args.output_dir)
 
             # Store metadata
             shift_applied = [
@@ -962,7 +1019,7 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
 
                     # Save initial images in debug mode (pick skill)
                     if args.debug or args.debug_skill:
-                        save_initial_images_debug(collected_steps, skill_name, "original", demo_key, args.init_offset, args.output_dir)
+                        save_initial_images_debug(collected_steps, skill_name, "original", demo_key, args.pick_offset, args.output_dir)
 
                     # Phase 2: Apply pose shifting augmentation (multiple iterations)
                     if not args.disable_augmentation:
@@ -1012,7 +1069,7 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
             # Save original initial states
             original_init_filename = f"{skill_name}_original.init"
             original_init_path = os.path.join(args.output_dir, original_init_filename)
-            extract_and_save_initial_states_original(original_successful_demos, original_init_path, args.init_offset)
+            extract_and_save_initial_states_original(original_successful_demos, original_init_path, args.pick_offset)
             print(f"💾 Saved original initial states: {original_init_path}")
 
             # Generate debug videos for original demos if in debug mode
@@ -1039,7 +1096,7 @@ def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str
             # Save augmented initial states
             augmented_init_filename = f"{skill_name}_augmented.init"
             augmented_init_path = os.path.join(args.output_dir, augmented_init_filename)
-            extract_and_save_initial_states_augmented(all_augmented_demos, augmented_init_path, args.init_offset)
+            extract_and_save_initial_states_augmented(all_augmented_demos, augmented_init_path, args.pick_offset)
             print(f"💾 Saved augmented initial states: {augmented_init_path}")
 
             # Generate debug videos for augmented demos if in debug mode
@@ -1212,7 +1269,7 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
 
                 # Save initial images in debug mode (place skill)
                 if args.debug or args.debug_skill:
-                    save_initial_images_debug(collected_steps, skill_name, "original", demo_key, args.init_offset, args.output_dir)
+                    save_initial_images_debug(collected_steps, skill_name, "original", demo_key, args.place_offset, args.output_dir)
 
                 # Phase 2: Apply pose shifting augmentation (multiple iterations)
                 # For place skills, use the actual completion step as trigger and calculate proper start_idx
@@ -1259,7 +1316,7 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
             # Save original initial states
             original_init_filename = f"{skill_name}_original.init"
             original_init_path = os.path.join(args.output_dir, original_init_filename)
-            extract_and_save_initial_states_original(original_successful_demos, original_init_path, args.init_offset)
+            extract_and_save_initial_states_original(original_successful_demos, original_init_path, args.place_offset)
             print(f"💾 Saved original initial states: {original_init_path}")
 
             # Generate debug videos for original demos if in debug mode
@@ -1286,7 +1343,7 @@ def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, st
             # Save augmented initial states
             augmented_init_filename = f"{skill_name}_augmented.init"
             augmented_init_path = os.path.join(args.output_dir, augmented_init_filename)
-            extract_and_save_initial_states_augmented(all_augmented_demos, augmented_init_path, args.init_offset)
+            extract_and_save_initial_states_augmented(all_augmented_demos, augmented_init_path, args.place_offset)
             print(f"💾 Saved augmented initial states: {augmented_init_path}")
 
             # Generate debug videos for augmented demos if in debug mode
@@ -1452,7 +1509,7 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
 
                     # Save initial images in debug mode (atomic skill)
                     if args.debug or args.debug_skill:
-                        save_initial_images_debug(collected_steps, skill_name, "original", demo_key, args.init_offset, args.output_dir)
+                        save_initial_images_debug(collected_steps, skill_name, "original", demo_key, args.atomic_offset, args.output_dir)
 
                     # Phase 2: Apply pose shifting augmentation (multiple iterations)
                     if not args.disable_augmentation:
@@ -1502,7 +1559,7 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
             # Save original initial states
             original_init_filename = f"{skill_name}_original.init"
             original_init_path = os.path.join(args.output_dir, original_init_filename)
-            extract_and_save_initial_states_original(original_successful_demos, original_init_path, args.init_offset)
+            extract_and_save_initial_states_original(original_successful_demos, original_init_path, args.atomic_offset)
             print(f"💾 Saved original initial states: {original_init_path}")
 
             # Generate debug videos for original demos if in debug mode
@@ -1529,7 +1586,7 @@ def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, s
             # Save augmented initial states
             augmented_init_filename = f"{skill_name}_augmented.init"
             augmented_init_path = os.path.join(args.output_dir, augmented_init_filename)
-            extract_and_save_initial_states_augmented(all_augmented_demos, augmented_init_path, args.init_offset)
+            extract_and_save_initial_states_augmented(all_augmented_demos, augmented_init_path, args.atomic_offset)
             print(f"💾 Saved augmented initial states: {augmented_init_path}")
 
             # Generate debug videos for augmented demos if in debug mode
@@ -1687,19 +1744,13 @@ Examples:
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_local_demos/augmented_atomic_skills",
+        default="datasets/hdf5_datasets/atomic_local_demos_augmented", # "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_local_demos/augmented_atomic_skills",
         help="Output directory for generated augmented HDF5 files"
     )
 
     # ============================================================================
     # PROCESSING PARAMETERS
     # ============================================================================
-    parser.add_argument(
-        "--init_offset",
-        type=int,
-        default=15,
-        help="Steps before trigger for initial state extraction"
-    )
     parser.add_argument(
         "--pick_offset",
         type=int,
@@ -1822,7 +1873,28 @@ Examples:
         default=2,
         help="Number of augmentation iterations per demo in debug modes (default: 2)"
     )
-    
+
+    # ============================================================================
+    # CHECKPOINT AND RESUME
+    # ============================================================================
+    parser.add_argument(
+        "--checkpoint_file",
+        type=str,
+        default="./datasets/hdf5_datasets/atomic_local_demos_augmented/checkpoint_phase2_normal.pkl",
+        help="Path to checkpoint file for save/resume functionality"
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint if available"
+    )
+    parser.add_argument(
+        "--random_seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducible pose shifting (default: 42)"
+    )
+
     args = parser.parse_args()
 
     # Set global logging flags
@@ -1830,6 +1902,26 @@ Examples:
     VERBOSE = args.verbose
     DEBUG_MODE = args.debug
     DEBUG_SKILL_MODE = args.debug_skill
+
+    # Set random seeds for reproducible pose shifting
+    random.seed(args.random_seed)
+    np.random.seed(args.random_seed)
+
+    # Set PyTorch seed if available
+    try:
+        import torch
+        torch.manual_seed(args.random_seed)
+        log_info(f"🌱 Random seed set to: {args.random_seed} (Python, NumPy, PyTorch)")
+    except ImportError:
+        log_info(f"🌱 Random seed set to: {args.random_seed} (Python, NumPy)")
+
+    # Modify output directory to include offset parameters (unless in debug/debug_skill modes)
+    if not args.debug and not args.debug_skill:
+        # Create directory name with offset parameters
+        base_dir = args.output_dir.rstrip('/')
+        offset_suffix = f"_pick_{args.pick_offset}_place_{args.place_offset}_atomic_{args.atomic_offset}"
+        args.output_dir = base_dir + offset_suffix
+        log_verbose(f"Output directory modified to include offsets: {args.output_dir}")
 
     # Set debug output directory if debug mode is enabled
     if args.debug:
@@ -1876,7 +1968,7 @@ Examples:
         if args.debug_skill:
             log_debug(f"Debug skill mode: {args.debug_skill_name}, {args.debug_num_demos} demos, {args.debug_num_iterations} iterations each")
         elif args.debug:
-            log_debug(f"Debug mode: 3 skills (pick/place/atomic), {args.debug_num_demos} demos, {args.debug_num_iterations} iterations each")
+            log_debug(f"Debug mode: 3 skills (place/atomic/pick order), {args.debug_num_demos} demos, {args.debug_num_iterations} iterations each")
     log_info("")
     
     # Load the category split mapping
@@ -1905,6 +1997,12 @@ Examples:
 
     log_info(f"Successfully mapped {len(mappings)} atomic skills to demo files")
     
+    # Helper function to sort skills in desired order: place -> atomic -> pick
+    def sort_skills_by_category(mappings_list):
+        """Sort skills to process in order: place, atomic, pick"""
+        category_order = {'place': 0, 'atomic': 1, 'pick': 2}
+        return sorted(mappings_list, key=lambda x: category_order.get(x['category'], 3))
+
     # In debug mode, process all categories; in debug skill mode, process one specific skill; in normal mode, focus on atomic skills for Phase 2
     if args.debug_skill:
         # Find the specific skill to debug
@@ -1922,20 +2020,62 @@ Examples:
         print(f"\n🎯 Debug Skill Mode: Processing skill '{args.debug_skill_name}' ({debug_skill_mapping['category']}) with augmentation")
         print(f"   Will process 5 demos with 2 iterations each")
     elif args.debug:
-        skills_to_process = mappings  # Process all categories (pick, place, atomic) in debug mode
+        skills_to_process = sort_skills_by_category(mappings)  # Process all categories in order: place -> atomic -> pick
         print(f"\n🎯 Debug Mode: Processing {len(skills_to_process)} skills (all categories) with augmentation")
         print(f"   Skills selected for debug:")
         for mapping in skills_to_process:
             print(f"   - {mapping['skill_name']} ({mapping['category']})")
     else:
-        skills_to_process = [m for m in mappings if m['category'] == 'atomic']
-        print(f"\n🎯 Phase 2: Processing {len(skills_to_process)} atomic skills with augmentation")
+        skills_to_process = mappings  # Process ALL skills (atomic, pick, place)
+        print(f"\n🎯 Phase 2: Processing {len(skills_to_process)} skills (all categories) with augmentation")
 
     total_successful = 0
     total_failed = 0
 
-    for mapping in tqdm(skills_to_process, desc="Processing skills"):
+    # Initialize timing tracking for debug mode
+    skill_timing_data = {}
+    debug_timing_enabled = args.debug or args.debug_skill
+
+    # Initialize checkpoint variables
+    processed_skills = []
+    start_time = time.time()
+    start_skill_idx = 0
+
+    # Load checkpoint if resuming
+    if args.resume:
+        print(f"\n🔄 Checking for checkpoint file: {args.checkpoint_file}")
+        checkpoint_data = load_checkpoint(args.checkpoint_file)
+        if checkpoint_data:
+            processed_skills = checkpoint_data['processed_skills']
+            start_time = checkpoint_data['start_time']
+            skill_timing_data = checkpoint_data['skill_timing_data']
+            start_skill_idx = checkpoint_data['current_skill_idx']
+
+            # Update counters from completed skills
+            for skill_name in processed_skills:
+                timing_info = skill_timing_data.get(skill_name)
+                if timing_info and timing_info['success']:
+                    total_successful += 1
+                else:
+                    total_failed += 1
+
+            print(f"📂 Resuming from skill #{start_skill_idx + 1}")
+
+            # Skip already processed skills
+            skills_to_process = skills_to_process[start_skill_idx:]
+        else:
+            print(f"📂 No checkpoint found, starting fresh")
+    else:
+        print(f"📂 Checkpoint disabled, starting fresh")
+
+    for skill_idx, mapping in enumerate(tqdm(skills_to_process, desc="Processing skills")):
         category = mapping['category']
+        skill_name = mapping['skill_name']
+
+        # Start timing for debug mode
+        if debug_timing_enabled:
+            skill_start_time = time.time()
+
         if category == 'pick':
             success, message = process_pick_skill_with_augmentation(mapping, args)
         elif category == 'place':
@@ -1945,21 +2085,76 @@ Examples:
         else:
             success, message = False, f"Unknown skill category: {category}"
 
+        # Record timing for debug mode
+        if debug_timing_enabled:
+            skill_end_time = time.time()
+            skill_duration = skill_end_time - skill_start_time
+            skill_timing_data[skill_name] = {
+                'category': category,
+                'duration_seconds': skill_duration,
+                'success': success
+            }
+
         if success:
             total_successful += 1
             print(f"✅ {mapping['skill_name']}: {message}")
         else:
             total_failed += 1
             print(f"❌ {mapping['skill_name']}: {message}")
+
+        # Update checkpoint after each skill
+        processed_skills.append(skill_name)
+        current_skill_idx = start_skill_idx + skill_idx + 1
+        save_checkpoint(
+            args.checkpoint_file,
+            processed_skills,
+            current_skill_idx,
+            len(mappings),  # Total original skills
+            start_time,
+            skill_timing_data
+        )
     
     # Save augmentation metadata
     save_augmentation_metadata(args.output_dir)
-    
+
+    # Clean up checkpoint file on successful completion
+    if os.path.exists(args.checkpoint_file):
+        try:
+            os.remove(args.checkpoint_file)
+            print(f"🗑️  Checkpoint file removed (processing completed)")
+        except Exception as e:
+            print(f"⚠️  Could not remove checkpoint file: {e}")
+
     print(f"\n🎯 Phase 2 Complete")
     print(f"=" * 60)
     print(f"Successfully processed: {total_successful}")
     print(f"Failed: {total_failed}")
     print(f"Total skills: {len(skills_to_process)}")
+
+    # Print timing summary for debug mode
+    if debug_timing_enabled and skill_timing_data:
+        print(f"\n⏱️  Skill Processing Times (Debug Mode)")
+        print(f"=" * 60)
+
+        total_time = 0
+        for skill_name, timing_info in skill_timing_data.items():
+            duration = timing_info['duration_seconds']
+            total_time += duration
+
+            # Convert to minutes and seconds
+            minutes = int(duration // 60)
+            seconds = int(duration % 60)
+
+            status_icon = "✅" if timing_info['success'] else "❌"
+            category = timing_info['category']
+
+            print(f"{status_icon} {skill_name} ({category}): {minutes}m {seconds}s")
+
+        # Print total time
+        total_minutes = int(total_time // 60)
+        total_seconds = int(total_time % 60)
+        print(f"\n🕒 Total Processing Time: {total_minutes}m {total_seconds}s")
+        print(f"   Average per skill: {total_time/len(skill_timing_data):.1f}s")
 
     # Enhanced augmentation success rate logging
     if hasattr(process_atomic_skill_with_augmentation, 'skill_statistics'):
@@ -2012,7 +2207,7 @@ Examples:
         print("- augmentation_metadata.json: Comprehensive statistics and metadata")
         if args.debug or args.debug_skill:
             print("- debug_videos/: Debug videos (agentview and wrist cam) for all demos")
-            print("- initial_images/: Initial state images (agentview and wrist cam) for investigating init_offset")
+            print("- initial_images/: Initial state images (agentview and wrist cam) for investigating offset parameters")
 
 
 
