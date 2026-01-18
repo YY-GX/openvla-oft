@@ -30,7 +30,7 @@ sbatch \
     --vla_path openvla/openvla-7b \
     --data_root_dir datasets/rlds_datasets \
     --dataset_name libero_above_atomic_long_id8 \
-    --run_root_dir runs/libero_above_atomic_long_id8/1.0.4 \
+    --run_root_dir runs/libero_above_atomic_long_id8/1.0.6 \
     --use_l1_regression True \
     --use_diffusion False \
     --use_film False \

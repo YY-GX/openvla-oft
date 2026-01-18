@@ -92,6 +92,7 @@ class FinetuneConfig:
     use_film: bool = False                           # If True, uses FiLM to infuse language inputs into visual features
     num_images_in_input: int = 1                     # Number of images in the VLA input (default: 1)
     use_proprio: bool = False                        # If True, includes robot proprioceptive state in input
+    use_proprio_14d: bool = False                    # If True, sets PROPRIO_DIM to 14 (for OBJ baseline with target object pose)
 
     # Training configuration
     batch_size: int = 8                              # Batch size per device (total batch size = batch_size * num GPUs)
@@ -644,6 +645,9 @@ def save_training_checkpoint(
         processor.save_pretrained(checkpoint_dir)
         vla.module.save_pretrained(adapter_dir)
 
+        # Copy modeling files to checkpoint directory
+        check_model_logic_mismatch(str(checkpoint_dir))
+
         # Save other components
         if cfg.use_proprio and proprio_projector is not None:
             torch.save(proprio_projector.state_dict(), checkpoint_dir / f"proprio_projector--{checkpoint_name_suffix}")
@@ -676,16 +680,19 @@ def save_training_checkpoint(
 
     # Merge LoRA weights into base model and save resulting model checkpoint
     # Note: Can be very slow on some devices; if so, we recommend merging offline
+    # Only main process does the merge since only it saves the result
     if cfg.use_lora and cfg.merge_lora_during_training:
-        base_vla = AutoModelForVision2Seq.from_pretrained(
-            cfg.vla_path, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True, trust_remote_code=True
-        )
-        merged_vla = PeftModel.from_pretrained(base_vla, adapter_dir)
-        merged_vla = merged_vla.merge_and_unload()
-
         if distributed_state.is_main_process:
+            base_vla = AutoModelForVision2Seq.from_pretrained(
+                cfg.vla_path, torch_dtype=torch.bfloat16, low_cpu_mem_usage=True, trust_remote_code=True
+            )
+            merged_vla = PeftModel.from_pretrained(base_vla, adapter_dir)
+            merged_vla = merged_vla.merge_and_unload()
             merged_vla.save_pretrained(checkpoint_dir)
             print(f"Saved merged model for Step {log_step} at: {checkpoint_dir}")
+
+            # Copy modeling files to checkpoint directory
+            check_model_logic_mismatch(str(checkpoint_dir))
 
         # Wait for merged model to be saved
         dist.barrier()
@@ -804,6 +811,12 @@ def finetune(cfg: FinetuneConfig) -> None:
     assert not (cfg.use_l1_regression and cfg.use_diffusion), (
         "Cannot do both L1 regression and diffusion. Please pick one of them!"
     )
+
+    # Override PROPRIO_DIM if using 14D proprioception (for OBJ baseline with target object pose)
+    if cfg.use_proprio_14d:
+        import prismatic.vla.constants as vla_constants
+        vla_constants.PROPRIO_DIM = 14
+        print(f"[INFO] Overriding PROPRIO_DIM to 14 for 14D proprioception (OBJ baseline)")
 
     # Trim trailing forward slash ('/') in VLA path if it exists
     cfg.vla_path = cfg.vla_path.rstrip("/")

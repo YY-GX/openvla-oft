@@ -1311,7 +1311,17 @@ def main():
                                'Put Both The Cream Cheese Box And The Butter In The Basket',
                                'Put The White Mug On The Left Plate And Put The Yellow And White Mug On The Right Plate',
                                'Put The White Mug On The Plate And Put The Chocolate Pudding To The Right Of The Plate',
-                               'Pick The Black Bowl'])
+                               'Pick The Black Bowl',
+                               # V2/V3 complex long tasks (IDs 19-24)
+                               'Complete Kitchen Organization V2', 'Organize Table V2', 'Cooking Preparation Setup V2',
+                               'Complete Kitchen Organization V3', 'Organize Table V3', 'Cooking Preparation Setup V3',
+                               # V1 libero long tasks with changed sequences (IDs 25-30)
+                               'Turn On The Stove And Put The Moka Pot On It V1',
+                               'Put Both The Alphabet Soup And The Cream Cheese Box In The Basket V1',
+                               'Put Both The Alphabet Soup And The Tomato Sauce In The Basket V1',
+                               'Put Both The Cream Cheese Box And The Butter In The Basket V1',
+                               'Put The White Mug On The Left Plate And Put The Yellow And White Mug On The Right Plate V1',
+                               'Put The White Mug On The Plate And Put The Chocolate Pudding To The Right Of The Plate V1'])
     parser.add_argument('--vla_checkpoint', type=str,
                        default="runs/libero_above_atomic/1.0.0/openvla-7b+libero_above_atomic+b8+lr-0.0005+lora-r32+dropout-0.0--image_aug--atomic_skills_above--8_acts_chunk--continuous_acts--L1_regression--wrist_img--proprio_state--100000_chkpt")
     parser.add_argument('--wrist_only', action='store_true', default=True)

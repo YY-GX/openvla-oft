@@ -35,7 +35,19 @@ def make_oxe_dataset_kwargs(
 
     if is_local_policy:
         # make wrist camera the primary view
-        dataset_kwargs["image_obs_keys"] = {"primary": "wrist_image", "secondary": None, "wrist": "image"}
+        # Swap the primary and wrist views using the actual keys from the dataset config
+        original_image_keys = dataset_kwargs["image_obs_keys"]
+        if "wrist" in original_image_keys and "primary" in original_image_keys and \
+           original_image_keys["wrist"] is not None and original_image_keys["primary"] is not None:
+            wrist_key = original_image_keys["wrist"]
+            primary_key = original_image_keys["primary"]
+            dataset_kwargs["image_obs_keys"] = {"primary": wrist_key, "secondary": None, "wrist": primary_key}
+        else:
+            raise ValueError(
+                f"Cannot use is_local_policy=True for dataset `{dataset_name}`; "
+                f"requires both 'primary' and 'wrist' camera views to be non-None. "
+                f"Available views: {original_image_keys}"
+            )
 
     if dataset_kwargs["action_encoding"] not in [ActionEncoding.EEF_POS, ActionEncoding.EEF_R6, ActionEncoding.JOINT_POS_BIMANUAL]:
         raise ValueError(f"Cannot load `{dataset_name}`; only EEF_POS & EEF_R6 & JOINT_POS_BIMANUAL actions supported!")

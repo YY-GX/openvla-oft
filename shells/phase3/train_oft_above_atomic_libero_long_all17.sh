@@ -15,7 +15,7 @@ LOG_FILE="train_above_atomic_libero_long_all17_%j.out"
 
 # Training on the above atomic long all17 dataset
 sbatch \
-  --nodelist=mirage.ib \
+  --nodelist=megatron.ib \
   --cpus-per-task=$CPUS_PER_TASK \
   --gpus=$GPUS \
   -o "$LOG_DIR/$LOG_FILE" \
@@ -26,7 +26,7 @@ sbatch \
     --vla_path openvla/openvla-7b \
     --data_root_dir datasets/rlds_datasets \
     --dataset_name libero_above_atomic_libero_long_all17 \
-    --run_root_dir runs/libero_above_atomic_libero_long_all17/1.0.0 \
+    --run_root_dir runs/libero_above_atomic_libero_long_all17/1.0.1 \
     --use_l1_regression True \
     --use_diffusion False \
     --use_film False \

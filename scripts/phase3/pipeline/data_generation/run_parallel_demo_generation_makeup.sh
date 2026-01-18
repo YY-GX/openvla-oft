@@ -6,9 +6,10 @@
 # CONFIGURATION - Edit these parameters as needed
 # ============================================================================
 SCRIPT_DIR="/mnt/arc/yygx/pkgs_baselines/openvla-oft"
-PYTHON_SCRIPT="scripts/phase3/pipeline/data_generation/generate_above_augmented_demos.py"
-BASE_OUTPUT_DIR="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer"
-NUM_AUGMENTATIONS=2
+PYTHON_SCRIPT="scripts/phase3/pipeline/data_generation/generate_object_centric_demos.py"
+# BASE_OUTPUT_DIR="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer"
+BASE_OUTPUT_DIR="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_26_skills"
+NUM_AUGMENTATIONS=3
 NUM_PROCESSES=10
 
 # Random seeds for each process (one per process)
@@ -56,7 +57,8 @@ for i in $(seq 1 ${NUM_PROCESSES}); do
     tmux send-keys -t "${SESSION_NAME}" "cd ${SCRIPT_DIR}" C-m
     tmux send-keys -t "${SESSION_NAME}" "conda activate openvla-oft" C-m
     sleep 1  # Wait for conda activation to complete
-    tmux send-keys -t "${SESSION_NAME}" "CUDA_VISIBLE_DEVICES=2 python3 ${PYTHON_SCRIPT} --make_up_mode --num_augmentations ${NUM_AUGMENTATIONS} --random_seed ${SEED} --output_path \"${OUTPUT_PATH}\" --trigger_distance 0.05 ${VIDEO_FLAG} --use_init_states" C-m
+    # tmux send-keys -t "${SESSION_NAME}" "CUDA_VISIBLE_DEVICES=2 python3 ${PYTHON_SCRIPT} --make_up_mode --num_augmentations ${NUM_AUGMENTATIONS} --random_seed ${SEED} --output_path \"${OUTPUT_PATH}\" --trigger_distance 0.05 ${VIDEO_FLAG} --use_init_states" C-m
+    tmux send-keys -t "${SESSION_NAME}" "CUDA_VISIBLE_DEVICES=2 python3 ${PYTHON_SCRIPT} --make_up_mode --num_augmentations ${NUM_AUGMENTATIONS} --random_seed ${SEED} --output_path \"${OUTPUT_PATH}\" ${VIDEO_FLAG} --use_init_states" C-m
     
     echo "Created tmux session: ${SESSION_NAME} (seed=${SEED}${VIDEO_FLAG:+ , videos enabled})"
 done

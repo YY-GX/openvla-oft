@@ -78,12 +78,13 @@ def droid_baseact_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
         ),
         axis=-1,
     )
-    trajectory["observation"]["exterior_image_1_left"], trajectory["observation"]["exterior_image_2_left"] = (
-        rand_swap_exterior_images(
-            trajectory["observation"]["exterior_image_1_left"],
-            trajectory["observation"]["exterior_image_2_left"],
-        )
-    )
+    # Commented out - exterior_image_2_left not available in real robot setup, no random swap needed
+    # trajectory["observation"]["exterior_image_1_left"], trajectory["observation"]["exterior_image_2_left"] = (
+    #     rand_swap_exterior_images(
+    #         trajectory["observation"]["exterior_image_1_left"],
+    #         trajectory["observation"]["exterior_image_2_left"],
+    #     )
+    # )
     trajectory["observation"]["proprio"] = tf.concat(
         (
             trajectory["observation"]["cartesian_position"],

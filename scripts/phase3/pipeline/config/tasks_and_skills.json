@@ -1,4 +1,10 @@
 {
+  "yygx_description": [
+    "ID 8 9 10 are complex long tasks.",
+    "ID 12 13 14 15 16 17 are original libero long tasks.",
+    "ID 19 20 21 22 23 24 are complex long tasks that change sequences",
+    "ID 25 26 27 28 29 30 are libero long tasks that change sequences"
+  ],
   "_comment": "Minimal task and skill configuration for Phase 3 evaluation pipeline",
   "_description": [
     "This config contains:",
@@ -149,13 +155,13 @@
         "pick black bowl 1",
         "place black bowl 1 on the plate 1",
         "pick black bowl 2",
-        "stack black bowl 2 on black bowl 1",
+        "place black bowl 2 on the plate 2",
+        "pick black bowl 3",
+        "stack black bowl 3 on black bowl 2",
 
         "pick cream cheese 1",
-        "place cream cheese 1 on the basket 1",
-
-        "pick black bowl 3",
-        "place black bowl 3 in bottom drawer of the cabinet 1",
+        "place cream cheese 1 in the basket 1",
+        
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
@@ -165,20 +171,23 @@
       "task_id": 9,
       "name": "Organize Table V1",
       "skills": [
+        "pick tomato sauce 1",
+        "place tomato sauce 1 in the basket 3",
+        "pick tomato sauce 2",
+        "place tomato sauce 2 in the basket 3",
+
         "pick alphabet soup 1",
-        "place alphabet soup 1 in the basket 1",
+        "place alphabet soup 1 in the basket 2",
         "pick alphabet soup 2",
-        "place alphabet soup 2 in the basket 1",
+        "place alphabet soup 2 in the basket 2",
+        
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
         "pick cream cheese 2",
         "place cream cheese 2 in the basket 1",
-        "pick tomato sauce 1",
-        "place tomato sauce 1 in the basket 1",
-        "pick tomato sauce 2",
-        "place tomato sauce 2 in the basket 1",
-        "pick wine bottle 1",
-        "place wine bottle 1 in bottom drawer of the cabinet 1",
+        
+        "pick black bowl 1",
+        "place black bowl 1 in bottom drawer of the cabinet 1",
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_organize_table",
@@ -209,7 +218,311 @@
       ],
       "bddl_file": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
       "benchmark": "libero_10"
+    },
+
+    
+    {
+      "task_id": 12,
+      "name": "Turn On The Stove And Put The Moka Pot On It",
+      "skills": [
+        "turn on the stove 1",
+        "pick moka pot 1",
+        "place moka pot 1 on the stove 1"
+      ],
+      "bddl_file": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 13,
+      "name": "Put Both The Alphabet Soup And The Cream Cheese Box In The Basket",
+      "skills": [
+        "pick alphabet soup 1",
+        "place alphabet soup 1 in the basket 1",
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1"
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 14,
+      "name": "Put Both The Alphabet Soup And The Tomato Sauce In The Basket",
+      "skills": [
+        "pick alphabet soup 1",
+        "place alphabet soup 1 in the basket 1",
+        "pick tomato sauce 1",
+        "place tomato sauce 1 in the basket 1"
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 15,
+      "name": "Put Both The Cream Cheese Box And The Butter In The Basket",
+      "skills": [
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1",
+        "pick butter 1",
+        "place butter 1 in the basket 1"
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 16,
+      "name": "Put The White Mug On The Left Plate And Put The Yellow And White Mug On The Right Plate",
+      "skills": [
+        "pick porcelain mug 1",
+        "place porcelain mug 1 on the plate 1",
+        "pick white yellow mug 1",
+        "place white yellow mug 1 on the plate 2"
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 17,
+      "name": "Put The White Mug On The Plate And Put The Chocolate Pudding To The Right Of The Plate",
+      "skills": [
+        "pick porcelain mug 1",
+        "place porcelain mug 1 on the plate 1",
+        "pick chocolate pudding 1",
+        "place chocolate pudding 1 to the right of the plate 1"
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+
+
+
+    {
+      "task_id": 18,
+      "name": "Pick The Black Bowl",
+      "skills": [
+        "pick black bowl 1"
+      ],
+      "bddl_file": "KITCHEN_SCENE1_put_the_black_bowl_on_the_plate_pick",
+      "benchmark": "atomic_skills"
+    },
+
+
+
+    {
+      "task_id": 19,
+      "name": "Complete Kitchen Organization V2",
+      "skills": [
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1",
+        
+        
+        "pick black bowl 2",
+        "place black bowl 2 on the plate 2",
+        "pick black bowl 3",
+        "stack black bowl 3 on black bowl 2",
+        "pick black bowl 1",
+        "place black bowl 1 on the plate 1",
+        
+        "close the bottom drawer of the cabinet 1"
+      ],
+      "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
+      "benchmark": "long_horizon_tasks_v1"
+    },
+    {
+      "task_id": 20,
+      "name": "Organize Table V2",
+      "skills": [
+
+        "pick alphabet soup 1",
+        "place alphabet soup 1 in the basket 2",
+
+        "pick tomato sauce 2",
+        "place tomato sauce 2 in the basket 3",
+
+
+        "pick alphabet soup 2",
+        "place alphabet soup 2 in the basket 2",
+
+        "pick tomato sauce 1",
+        "place tomato sauce 1 in the basket 3",
+
+
+        "pick cream cheese 2",
+        "place cream cheese 2 in the basket 1",
+        
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1",
+
+
+        "pick black bowl 1",
+        "place black bowl 1 in bottom drawer of the cabinet 1",
+        "close the bottom drawer of the cabinet 1"
+      ],
+      "bddl_file": "LONG_HORIZON_organize_table",
+      "benchmark": "long_horizon_tasks_v1"
+    },
+    {
+      "task_id": 21,
+      "name": "Cooking Preparation Setup V2",
+      "skills": [
+        "turn on the stove 1",
+        "pick moka pot 1",
+        "place moka pot 1 on the stove 1",
+
+        "turn on the stove 2",
+        "pick frying pan 1",
+        "place frying pan 1 on the stove 2",        
+
+        "open the microwave 1"
+      ],
+      "bddl_file": "LONG_HORIZON_cooking_preparation_setup",
+      "benchmark": "long_horizon_tasks_v1"
+    },
+
+    {
+      "task_id": 22,
+      "name": "Complete Kitchen Organization V3",
+      "skills": [
+
+        "pick black bowl 2",
+        "place black bowl 2 on the plate 2",
+        "pick black bowl 3",
+        "stack black bowl 3 on black bowl 2",
+
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1",
+
+        "pick black bowl 1",
+        "place black bowl 1 on the plate 1",
+        
+        "close the bottom drawer of the cabinet 1"
+      ],
+      "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
+      "benchmark": "long_horizon_tasks_v1"
+    },
+    {
+      "task_id": 23,
+      "name": "Organize Table V3",
+      "skills": [
+        "pick alphabet soup 1",
+        "place alphabet soup 1 in the basket 2",
+        "pick alphabet soup 2",
+        "place alphabet soup 2 in the basket 2",
+
+        "pick tomato sauce 1",
+        "place tomato sauce 1 in the basket 3",
+        "pick tomato sauce 2",
+        "place tomato sauce 2 in the basket 3",
+        
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1",
+        "pick cream cheese 2",
+        "place cream cheese 2 in the basket 1",
+        
+        "pick black bowl 1",
+        "place black bowl 1 in bottom drawer of the cabinet 1",
+        "close the bottom drawer of the cabinet 1"
+      ],
+      "bddl_file": "LONG_HORIZON_organize_table",
+      "benchmark": "long_horizon_tasks_v1"
+    },
+    {
+      "task_id": 24,
+      "name": "Cooking Preparation Setup V3",
+      "skills": [
+        "turn on the stove 2",
+        "turn on the stove 1",
+
+        "pick frying pan 1",
+        "place frying pan 1 on the stove 2",        
+        
+        "pick moka pot 1",
+        "place moka pot 1 on the stove 1",
+        "open the microwave 1"
+      ],
+      "bddl_file": "LONG_HORIZON_cooking_preparation_setup",
+      "benchmark": "long_horizon_tasks_v1"
+    },
+
+
+
+    {
+      "task_id": 25,
+      "name": "Turn On The Stove And Put The Moka Pot On It V1",
+      "skills": [
+        "pick moka pot 1",
+        "place moka pot 1 on the stove 1",
+        
+        "turn on the stove 1"        
+      ],
+      "bddl_file": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 26,
+      "name": "Put Both The Alphabet Soup And The Cream Cheese Box In The Basket V1",
+      "skills": [
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1",
+        "pick alphabet soup 1",
+        "place alphabet soup 1 in the basket 1"
+        
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 27,
+      "name": "Put Both The Alphabet Soup And The Tomato Sauce In The Basket V1",
+      "skills": [
+        "pick tomato sauce 1",
+        "place tomato sauce 1 in the basket 1",
+        "pick alphabet soup 1",
+        "place alphabet soup 1 in the basket 1"
+        
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 28,
+      "name": "Put Both The Cream Cheese Box And The Butter In The Basket V1",
+      "skills": [
+        "pick butter 1",
+        "place butter 1 in the basket 1",
+        "pick cream cheese 1",
+        "place cream cheese 1 in the basket 1"
+        
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 29,
+      "name": "Put The White Mug On The Left Plate And Put The Yellow And White Mug On The Right Plate V1",
+      "skills": [
+        "pick white yellow mug 1",
+        "place white yellow mug 1 on the plate 2",
+        "pick porcelain mug 1",
+        "place porcelain mug 1 on the plate 1"
+        
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "benchmark": "long_horizon_tasks_libero_long"
+    },
+    {
+      "task_id": 30,
+      "name": "Put The White Mug On The Plate And Put The Chocolate Pudding To The Right Of The Plate V1",
+      "skills": [
+        "pick chocolate pudding 1",
+        "place chocolate pudding 1 to the right of the plate 1",
+        "pick porcelain mug 1",
+        "place porcelain mug 1 on the plate 1"
+        
+      ],
+      "bddl_file": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
+      "benchmark": "long_horizon_tasks_libero_long"
     }
+
   ],
   "skill_mappings": {
     "pick moka pot 1": {
@@ -399,12 +712,23 @@
       ]
     },
     "place black bowl 1 in bottom drawer of the cabinet 1": {
-      "target_object": "wooden_cabinet_1_bottom_region",
+      "target_object": "wooden_cabinet_1_cabinet_bottom",
       "language": "place black bowl in bottom drawer of the cabinet",
       "bddl_predicates": [
         [
           "in",
           "akita_black_bowl_1_main",
+          "wooden_cabinet_1_bottom_region"
+        ]
+      ]
+    },
+    "place wine bottle 1 in bottom drawer of the cabinet 1": {
+      "target_object": "wooden_cabinet_1_cabinet_bottom",
+      "language": "place wine bottle in bottom drawer of the cabinet",
+      "bddl_predicates": [
+        [
+          "in",
+          "wine_bottle_1_main",
           "wooden_cabinet_1_bottom_region"
         ]
       ]
@@ -440,6 +764,17 @@
         ]
       ]
     },
+    "stack black bowl 3 on black bowl 2": {
+      "target_object": "akita_black_bowl_2_main",
+      "language": "place black bowl on the black bowl",
+      "bddl_predicates": [
+        [
+          "on",
+          "akita_black_bowl_3_main",
+          "akita_black_bowl_2_main"
+        ]
+      ]
+    },
     "place black bowl 3 in top drawer of the cabinet 1": {
       "target_object": "wooden_cabinet_1_cabinet_top",
       "language": "place black bowl in top drawer of the cabinet",
@@ -469,17 +804,6 @@
         [
           "pickedup",
           "cream_cheese_1_main"
-        ]
-      ]
-    },
-    "place cream cheese 1 on the basket 1": {
-      "target_object": "basket_1_main",
-      "language": "place cream cheese on the basket",
-      "bddl_predicates": [
-        [
-          "on",
-          "cream_cheese_1_main",
-          "basket_1_contain_region"
         ]
       ]
     },
@@ -525,6 +849,28 @@
         ]
       ]
     },
+    "place alphabet soup 1 in the basket 2": {
+      "target_object": "basket_2_main",
+      "language": "place alphabet soup in the basket",
+      "bddl_predicates": [
+        [
+          "in",
+          "alphabet_soup_1_main",
+          "basket_2_contain_region"
+        ]
+      ]
+    },
+    "place alphabet soup 2 in the basket 2": {
+      "target_object": "basket_2_main",
+      "language": "place alphabet soup in the basket",
+      "bddl_predicates": [
+        [
+          "in",
+          "alphabet_soup_2_main",
+          "basket_2_contain_region"
+        ]
+      ]
+    },
     "pick cream cheese 2": {
       "target_object": "cream_cheese_2_main",
       "language": "pick cream cheese",
@@ -546,6 +892,17 @@
         ]
       ]
     },
+    "place cream cheese 1 in the basket 2": {
+      "target_object": "basket_2_main",
+      "language": "place cream cheese in the basket",
+      "bddl_predicates": [
+        [
+          "in",
+          "cream_cheese_1_main",
+          "basket_2_contain_region"
+        ]
+      ]
+    },
     "place cream cheese 2 in the basket 1": {
       "target_object": "basket_1_main",
       "language": "place cream cheese in the basket",
@@ -554,6 +911,17 @@
           "in",
           "cream_cheese_2_main",
           "basket_1_contain_region"
+        ]
+      ]
+    },
+    "place cream cheese 2 in the basket 2": {
+      "target_object": "basket_2_main",
+      "language": "place cream cheese in the basket",
+      "bddl_predicates": [
+        [
+          "in",
+          "cream_cheese_2_main",
+          "basket_2_contain_region"
         ]
       ]
     },
@@ -588,14 +956,109 @@
         ]
       ]
     },
-    "place tomato sauce 2 in the basket 1": {
-      "target_object": "basket_1_main",
+    "place tomato sauce 1 in the basket 3": {
+      "target_object": "basket_3_main",
+      "language": "place tomato sauce in the basket",
+      "bddl_predicates": [
+        [
+          "in",
+          "tomato_sauce_1_main",
+          "basket_3_contain_region"
+        ]
+      ]
+    },
+    "place tomato sauce 2 in the basket 3": {
+      "target_object": "basket_3_main",
       "language": "place tomato sauce in the basket",
       "bddl_predicates": [
         [
           "in",
           "tomato_sauce_2_main",
+          "basket_3_contain_region"
+        ]
+      ]
+    },
+    "pick butter 1": {
+      "target_object": "butter_1_main",
+      "language": "pick butter",
+      "bddl_predicates": [
+        [
+          "pickedup",
+          "butter_1_main"
+        ]
+      ]
+    },
+    "place butter 1 in the basket 1": {
+      "target_object": "basket_1_main",
+      "language": "place butter in the basket",
+      "bddl_predicates": [
+        [
+          "in",
+          "butter_1_main",
           "basket_1_contain_region"
+        ]
+      ]
+    },
+    "pick porcelain mug 1": {
+      "target_object": "porcelain_mug_1_main",
+      "language": "pick white mug",
+      "bddl_predicates": [
+        [
+          "pickedup",
+          "porcelain_mug_1_main"
+        ]
+      ]
+    },
+    "place porcelain mug 1 on the plate 1": {
+      "target_object": "plate_1_main",
+      "language": "place white mug on the plate",
+      "bddl_predicates": [
+        [
+          "on",
+          "porcelain_mug_1_main",
+          "plate_1_main"
+        ]
+      ]
+    },
+    "pick white yellow mug 1": {
+      "target_object": "white_yellow_mug_1_main",
+      "language": "pick yellow and white mug",
+      "bddl_predicates": [
+        [
+          "pickedup",
+          "white_yellow_mug_1_main"
+        ]
+      ]
+    },
+    "place white yellow mug 1 on the plate 2": {
+      "target_object": "plate_2_main",
+      "language": "place yellow and white mug on the plate",
+      "bddl_predicates": [
+        [
+          "on",
+          "white_yellow_mug_1_main",
+          "plate_2_main"
+        ]
+      ]
+    },
+    "pick chocolate pudding 1": {
+      "target_object": "chocolate_pudding_1_main",
+      "language": "pick chocolate pudding",
+      "bddl_predicates": [
+        [
+          "pickedup",
+          "chocolate_pudding_1_main"
+        ]
+      ]
+    },
+    "place chocolate pudding 1 to the right of the plate 1": {
+      "target_object": "plate_1_main",
+      "language": "place chocolate pudding to the right of the plate",
+      "bddl_predicates": [
+        [
+          "on",
+          "chocolate_pudding_1_main",
+          "living_room_table_plate_right_region"
         ]
       ]
     }

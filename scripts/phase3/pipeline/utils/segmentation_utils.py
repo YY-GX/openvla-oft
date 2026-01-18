@@ -2,7 +2,84 @@
 Segmentation utilities for wrist camera.
 """
 import numpy as np
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Set
+
+
+def get_table_body_name(env) -> Optional[str]:
+    """
+    Detect the table body name from LIBERO environment.
+
+    This function identifies the workspace table body (kitchen_table, living_room_table,
+    study_table) which may have unnamed geoms that can't be detected by keyword matching.
+
+    Args:
+        env: LIBERO environment with MuJoCo simulation
+
+    Returns:
+        Table body name (e.g., "kitchen_table", "living_room_table", "study_table")
+        or None if not found
+    """
+    # Method 1: Try to get from env attributes (LIBERO envs have workspace_name)
+    # Access the base env if wrapped
+    base_env = env
+    while hasattr(base_env, 'env'):
+        if hasattr(base_env, 'workspace_name'):
+            return base_env.workspace_name
+        base_env = base_env.env
+
+    if hasattr(base_env, 'workspace_name'):
+        return base_env.workspace_name
+
+    # Method 2: Search for bodies containing 'table' in name
+    sim = env.sim
+    table_candidates = []
+    workspace_tables = ['kitchen_table', 'living_room_table', 'study_table']
+
+    for body_id in range(sim.model.nbody):
+        body_name = sim.model.body_id2name(body_id)
+        if body_name and 'table' in body_name.lower():
+            # Prioritize workspace table names
+            if any(ws in body_name for ws in workspace_tables):
+                return body_name
+            table_candidates.append(body_name)
+
+    # Fallback: return first table candidate if any
+    return table_candidates[0] if table_candidates else None
+
+
+def get_table_geom_ids(sim, table_body_name: str) -> Set[int]:
+    """
+    Get all geom IDs belonging to the table body (including child bodies).
+
+    This handles tables with unnamed collision geoms (like living_room_table)
+    by collecting ALL geoms under the table body hierarchy.
+
+    Args:
+        sim: MuJoCo simulation object
+        table_body_name: Table body name (e.g., "living_room_table")
+
+    Returns:
+        Set of geom IDs belonging to the table and its child bodies
+    """
+    table_geom_ids = set()
+
+    if not table_body_name:
+        return table_geom_ids
+
+    # Find all bodies that are children of the table body
+    # (e.g., "living_room_table", "living_room_table_col")
+    prefix = table_body_name if not table_body_name.endswith('_') else table_body_name
+
+    # Find all bodies starting with this prefix
+    for body_id in range(sim.model.nbody):
+        body_name = sim.model.body_id2name(body_id)
+        if body_name and body_name.startswith(prefix):
+            # Collect all geoms belonging to this body
+            for geom_id in range(sim.model.ngeom):
+                if sim.model.geom_bodyid[geom_id] == body_id:
+                    table_geom_ids.add(geom_id)
+
+    return table_geom_ids
 
 
 def get_related_bodies(sim, target_object: str) -> List[str]:
@@ -317,12 +394,23 @@ def apply_distractor_masking(
                 pass
 
     # Collect static furniture/background geom IDs (table, cabinet bases, walls, etc.)
-    static_keywords = ['table', 'floor', 'wall', 'room', 'counter', 'shelf']
-    static_geom_ids = set()
+    # Method 1: Body-based table detection (robust, handles unnamed geoms in living_room_table)
+    table_body_name = get_table_body_name(env)
+    table_geom_ids = get_table_geom_ids(sim, table_body_name) if table_body_name else set()
+
+    # Method 2: Keyword-based detection (handles named geoms in kitchen_table + other static objects)
+    # Keep 'table' in keywords to handle kitchen_table (which has named geoms)
+    # Body-based detection handles living_room_table (which has unnamed geoms)
+    # Set union prevents duplicates between both methods
+    static_keywords = ['floor', 'wall', 'table', 'room', 'counter', 'shelf']
+    keyword_geom_ids = set()
     for geom_id in range(sim.model.ngeom):
         geom_name = sim.model.geom_id2name(geom_id)
         if geom_name and any(kw in geom_name.lower() for kw in static_keywords):
-            static_geom_ids.add(geom_id)
+            keyword_geom_ids.add(geom_id)
+
+    # Combine both methods (set union prevents duplicates)
+    static_geom_ids = table_geom_ids | keyword_geom_ids
 
 
     # Identify all geom IDs to KEEP (don't mask)
