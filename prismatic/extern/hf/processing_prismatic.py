@@ -164,7 +164,7 @@ class PrismaticImageProcessor(ImageProcessingMixin):
         pixel_values = torch.stack([self.apply_transform(img.convert("RGB")) for img in images])
 
         # Return BatchFeature =>> note that for compatibility, constructor expects Dict[str, np.ndarray], so we convert
-        return BatchFeature(data={"pixel_values": pixel_values.float().numpy()}, tensor_type=return_tensors)
+        return BatchFeature(data={"pixel_values": pixel_values.to(torch.bfloat16).numpy()}, tensor_type=return_tensors)
 
     def __call__(self, images: Union[Image.Image, List[Image.Image]], **kwargs) -> BatchFeature:
         return self.preprocess(images, **kwargs)

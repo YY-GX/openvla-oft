@@ -155,7 +155,30 @@ wandb/
 # yygx
 datasets/
 logs/
-
 imgs/
 *.pyc
 
+# Large files and outputs (prevent accidental commits)
+scripts/phase3/pipeline/outputs/
+externals/openpi/checkpoints/
+runs/
+outputs/
+images_videos/
+investigation_results/
+debug_files/
+debug_replay_videos/
+local_inits/
+
+# Large binary files
+*.ply
+*.pth
+*.pt
+*.ckpt
+*.hdf5
+*.mp4
+*.png
+*.npy
+
+# Other
+.claude/
+.nfs*

@@ -15,11 +15,16 @@ from experiments.robot.robot_utils import (
 )
 
 
-def get_libero_env(task, model_family, resolution=256):
+def get_libero_env(task, model_family, resolution=256, horizon=None):
     """Initializes and returns the LIBERO environment, along with the task description."""
     task_description = task.language
     task_bddl_file = os.path.join(get_libero_path("bddl_files"), task.problem_folder, task.bddl_file)
     env_args = {"bddl_file_name": task_bddl_file, "camera_heights": resolution, "camera_widths": resolution, "camera_depths": True}  # yy: I add camera_depths
+    
+    # Set custom horizon if provided (needed for pose shifting with motion planning)
+    if horizon is not None:
+        env_args["horizon"] = horizon
+        
     env = OffScreenRenderEnv(**env_args)
     env.seed(0)  # IMPORTANT: seed seems to affect object positions even when using fixed initial state
     return env, task_description
@@ -61,6 +66,36 @@ def get_libero_wrist_image_depth(obs):
     # Duplicate the single channel 3 times along the last axis
     img_3ch = np.repeat(img, 3, axis=2)  # Shape: (256, 256, 3)
     return img_3ch
+
+def get_libero_env_agentview_zoomout(task, model_family, resolution=256):
+    """Initializes and returns the LIBERO environment with agentview camera zoomed out, along with the task description."""
+    task_description = task.language
+    task_bddl_file = os.path.join(get_libero_path("bddl_files"), task.problem_folder, task.bddl_file)
+    env_args = {
+        "bddl_file_name": task_bddl_file,
+        "camera_heights": resolution,
+        "camera_widths": resolution,
+        "camera_depths": True,
+        "render_camera": "agentview",
+    }
+    env = OffScreenRenderEnv(**env_args)
+    env.seed(0)
+    # Set camera parameters directly in the MuJoCo model (zoom out)
+    sim = env.sim
+    model = sim.model
+    # Find the agentview camera index
+    cam_id = None
+    for i in range(model.ncam):
+        name = model.camera_id2name(i)
+        if name == "agentview":
+            cam_id = i
+            break
+    if cam_id is None:
+        cam_id = 0  # fallback to first camera
+    model.cam_pos[cam_id] = [2.0, 0.0, 2.0]  # Further and higher
+    model.cam_fovy[cam_id] = 70  # Wider field of view
+    # Optionally, set lookat or orientation if needed
+    return env, task_description
 
 def save_rollout_video(rollout_images, idx, success, task_description, log_file=None):
     """Saves an MP4 replay of an episode."""

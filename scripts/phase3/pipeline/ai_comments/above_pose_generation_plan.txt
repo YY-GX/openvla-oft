@@ -1,0 +1,76 @@
+ABOVE-POSE AUGMENTED DEMO GENERATION PLAN
+==========================================
+Date: 2025-10-31
+
+OVERVIEW
+--------
+New data augmentation strategy: Start from "above object" poses instead of extracting relative poses from demos.
+
+PIPELINE FLOW
+-------------
+1. Load HDF5 demo
+2. Detect trigger timestep:
+   - Pick/other: Contact (gripper closing/collision)
+   - Place: Completion (done=True)
+3. Get object pose at trigger (via MuJoCo, no replay)
+4. Calculate above_pose:
+   - above_pt = [obj_x, obj_y, obj_z + above_height]
+   - Optional shift: xy ± xy_range, z ± z_range
+   - Use hardcoded rest orientation (downward-facing)
+5. Move to above_pose:
+   - Place skills: Replay until picked + 5 steps, then move
+   - Pick/other: Move directly
+   - Use MPlib motion planner (with pose conversion)
+6. Find closest demo pose before trigger (read from demo obs, no replay)
+7. Move to closest pose using MPlib
+8. Replay rest of demo until done
+9. Save demo (success or failure) to HDF5
+
+KEY DESIGN DECISIONS
+--------------------
+- Hardcoded rest orientation (no dynamic extraction)
+- Direct MuJoCo state queries (no replay for object/EE poses)
+- Read EE poses directly from demo['obs'] (no replay)
+- Single save function for both success/failure demos
+- Save .init files with initial states (after reaching above_pose)
+- First iteration: no shift; subsequent iterations: apply shift
+- Minimal logging, simple functions without try/except
+
+HYPERPARAMETERS
+---------------
+- above_height: 0.10 (10cm above object)
+- xy_range: 0.01 (±1cm for XY shift)
+- z_range: 0.015 (±1.5cm for Z shift)
+- num_augmentations: 5 (augmented demos per original)
+
+FILE STRUCTURE
+--------------
+1. scripts/phase3/pipeline/utils/above_pose_calculator.py
+   - calculate_above_pose(): Core above-pose calculation
+   - visualize_above_pose(): Debug/test with images
+   - main(): CLI for testing
+
+2. scripts/phase3/pipeline/data_generation/generate_above_augmented_demos.py
+   - detect_trigger_timestep(): Find trigger point
+   - get_object_pose_from_state(): MuJoCo state → object pose
+   - find_closest_demo_pose(): Find best entry point
+   - calculate_pose_distance(): Pose similarity metric
+   - generate_single_augmented_demo(): One augmentation attempt
+   - process_single_demo(): One original → N augmented
+   - save_demos_hdf5(): Persist demos (success + failure)
+   - save_init_states(): Persist .init files
+   - process_skill(): Process all demos for one skill
+   - main(): Full pipeline orchestration
+
+OUTPUTS
+-------
+Success demos: {output_path}/{skill_name}_augmented_success.hdf5
+Failure demos: {output_path}/{skill_name}_augmented_failure.hdf5
+Initial states: {output_path}/{skill_name}_augmented.init
+Debug images: scripts/phase3/pipeline/outputs/images/{skill_name}/
+
+REFERENCES
+----------
+- scripts/phase3/pipeline/utils/pose_calculator.py (MuJoCo object pose extraction)
+- scripts/phase3/pipeline/data_generation/generate_demos.py (BDDL/HDF5 handling)
+- scripts/phase3/pipeline/motion_planning/mplib/examples/simple_move_test.py:124 (pose conversion)

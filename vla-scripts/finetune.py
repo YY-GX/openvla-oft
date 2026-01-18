@@ -6,6 +6,7 @@ Fine-tunes OpenVLA via LoRA.
 
 import os
 import time
+import warnings
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,6 +61,14 @@ from prismatic.vla.constants import (
 )
 from prismatic.vla.datasets import RLDSBatchTransform, RLDSDataset
 from prismatic.vla.datasets.rlds.utils.data_utils import save_dataset_statistics
+from prismatic.util import ensure_bfloat16, ensure_bfloat16_batch
+
+# Import balanced dataset wrapper for handling original vs augmented demo imbalance
+try:
+    from balanced_dataset_wrapper import BalancedOriginalAugmentedDataset
+    _BALANCED_WRAPPER_AVAILABLE = True
+except ImportError:
+    _BALANCED_WRAPPER_AVAILABLE = False
 
 # Sane Defaults
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -121,6 +130,10 @@ class FinetuneConfig:
 
     # local policy
     is_local_policy: bool = False
+
+    # Balanced Sampling Configuration (for handling original vs augmented demo imbalance)
+    use_balanced_sampling: bool = False              # Whether to balance original vs augmented demos during training
+    original_demo_ratio: float = 0.5                 # Fraction of samples that should be original demos (0.5 = 50/50 balance)
 
 
 def remove_ddp_in_checkpoint(state_dict) -> dict:
@@ -313,7 +326,7 @@ def run_forward_pass(
     metrics = {}
 
     # Get ground-truth action labels
-    ground_truth_actions = batch["actions"].to(device_id).to(torch.bfloat16)
+    ground_truth_actions = ensure_bfloat16(batch["actions"].to(device_id))
 
     # [Only for diffusion] Sample noisy actions used as input for noise predictor network
     if use_diffusion:
@@ -331,7 +344,7 @@ def run_forward_pass(
         output: CausalLMOutputWithPast = vla(
             input_ids=batch["input_ids"].to(device_id),
             attention_mask=batch["attention_mask"].to(device_id),
-            pixel_values=batch["pixel_values"].to(torch.bfloat16).to(device_id),
+            pixel_values=ensure_bfloat16(batch["pixel_values"].to(device_id)),
             labels=batch["labels"],
             output_hidden_states=True,
             proprio=batch["proprio"] if use_proprio else None,
@@ -380,11 +393,10 @@ def run_forward_pass(
         text_hidden_states = last_hidden_states[:, num_patches:-1]
         # Get hidden states for action portion of response
         batch_size = batch["input_ids"].shape[0]
-        actions_hidden_states = (
-            text_hidden_states[current_action_mask | next_actions_mask]
-            .reshape(batch_size, NUM_ACTIONS_CHUNK * ACTION_DIM, -1)
-            .to(torch.bfloat16)
+        actions_hidden_states = text_hidden_states[current_action_mask | next_actions_mask].reshape(
+            batch_size, NUM_ACTIONS_CHUNK * ACTION_DIM, -1
         )  # (B, act_chunk_len, D)
+        actions_hidden_states = ensure_bfloat16(actions_hidden_states)
 
         if use_l1_regression:
             # Predict action
@@ -505,7 +517,7 @@ def run_diffusion_sampling(
             output = vla(
                 input_ids=batch["input_ids"].to(device_id),
                 attention_mask=batch["attention_mask"].to(device_id),
-                pixel_values=batch["pixel_values"].to(torch.bfloat16).to(device_id),
+                pixel_values=ensure_bfloat16(batch["pixel_values"].to(device_id)),
                 labels=batch["labels"],
                 output_hidden_states=True,
                 proprio=batch["proprio"] if use_proprio else None,
@@ -585,6 +597,8 @@ def save_training_checkpoint(
     action_head,
     train_dataset,
     distributed_state,
+    optimizer=None,
+    scheduler=None,
 ) -> None:
     """
     Save all training checkpoints including model components, LoRA adapter, and dataset statistics.
@@ -647,6 +661,15 @@ def save_training_checkpoint(
             torch.save(
                 vla.module.vision_backbone.state_dict(), checkpoint_dir / f"vision_backbone--{checkpoint_name_suffix}"
             )
+
+        # Save optimizer and scheduler state for resume
+        if optimizer is not None:
+            torch.save(optimizer.state_dict(), checkpoint_dir / f"optimizer--{checkpoint_name_suffix}")
+        if scheduler is not None:
+            torch.save(scheduler.state_dict(), checkpoint_dir / f"scheduler--{checkpoint_name_suffix}")
+
+        # Save training step info
+        torch.save({"step": log_step}, checkpoint_dir / f"training_state--{checkpoint_name_suffix}")
 
     # Wait for model components to be saved
     dist.barrier()
@@ -769,6 +792,14 @@ def finetune(cfg: FinetuneConfig) -> None:
     Returns:
         None.
     """
+    # Suppress UserWarning about copying from non-meta parameters (occurs during TIMM model loading)
+    warnings.filterwarnings(
+        "ignore",
+        message=".*copying from a non-meta parameter in the checkpoint to a meta parameter.*",
+        category=UserWarning,
+        module="torch.nn.modules.module"
+    )
+
     assert cfg.use_lora, "Only LoRA fine-tuning is supported. Please set --use_lora=True!"
     assert not (cfg.use_l1_regression and cfg.use_diffusion), (
         "Cannot do both L1 regression and diffusion. Please pick one of them!"
@@ -881,15 +912,8 @@ def finetune(cfg: FinetuneConfig) -> None:
     # Wrap VLA with DDP
     vla = wrap_ddp(vla, device_id, find_unused=True)
 
-    # If applicable, instantiate proprio projector
-    if cfg.use_proprio:
-        proprio_projector = init_module(
-            ProprioProjector,
-            "proprio_projector",
-            cfg,
-            device_id,
-            {"llm_dim": vla.module.llm_dim, "proprio_dim": PROPRIO_DIM},
-        )
+    # Note: ProprioProjector initialization is moved to after dataset creation
+    # to auto-detect the proprio dimension from the dataset
 
     # If applicable, instantiate continuous action head for L1 regression
     if cfg.use_l1_regression:
@@ -930,26 +954,8 @@ def finetune(cfg: FinetuneConfig) -> None:
     if cfg.use_diffusion:
         NUM_PATCHES += 1
 
-    # Instantiate optimizer
-    trainable_params = [param for param in vla.parameters() if param.requires_grad]
-    if cfg.use_l1_regression or cfg.use_diffusion:
-        trainable_params += [param for param in action_head.parameters() if param.requires_grad]
-    if cfg.use_diffusion:
-        trainable_params += [param for param in noisy_action_projector.parameters() if param.requires_grad]
-    if cfg.use_proprio:
-        trainable_params += [param for param in proprio_projector.parameters() if param.requires_grad]
-    print(f"# total trainable params: {sum(p.numel() for p in trainable_params)}")
-    optimizer = AdamW(trainable_params, lr=cfg.learning_rate)
-
-    # Record original learning rate
-    original_lr = optimizer.param_groups[0]["lr"]
-
-    # Create learning rate scheduler
-    scheduler = MultiStepLR(
-        optimizer,
-        milestones=[cfg.num_steps_before_decay],  # Number of steps after which LR will change
-        gamma=0.1,  # Multiplicative factor of learning rate decay
-    )
+    # Note: Optimizer and scheduler creation is moved to after dataset creation
+    # and ProprioProjector initialization to support dynamic proprio dimension detection
 
     # Create Action Tokenizer
     action_tokenizer = ActionTokenizer(processor.tokenizer)
@@ -992,6 +998,19 @@ def finetune(cfg: FinetuneConfig) -> None:
         image_aug=cfg.image_aug,
         is_local_policy=cfg.is_local_policy
     )
+
+    # Optional: Wrap with balanced sampler for original vs augmented demo balance
+    if cfg.use_balanced_sampling:
+        if not _BALANCED_WRAPPER_AVAILABLE:
+            raise ImportError(
+                "Balanced sampling requested but balanced_dataset_wrapper.py not found. "
+                "Make sure balanced_dataset_wrapper.py is in the same directory as this script."
+            )
+
+        train_dataset = BalancedOriginalAugmentedDataset(
+            train_dataset,
+            balance_ratio=cfg.original_demo_ratio
+        )
     if cfg.use_val_set:
         val_dataset = RLDSDataset(
             cfg.data_root_dir,
@@ -1029,6 +1048,79 @@ def finetune(cfg: FinetuneConfig) -> None:
             num_workers=0,  # Important: Set to 0 if using RLDS, which uses its own parallelism
         )
 
+    # Auto-detect proprio dimension from dataset (support both 8D and 14D)
+    if cfg.use_proprio:
+        # Sample one batch to detect the actual proprio dimension
+        if distributed_state.is_main_process:
+            print("Detecting proprio dimension from dataset...")
+        sample_iter = iter(dataloader)
+        sample_batch = next(sample_iter)
+
+        # The batch may have proprio in different keys depending on the dataset
+        detected_proprio_dim = None
+        if "proprio" in sample_batch:
+            detected_proprio_dim = sample_batch["proprio"].shape[-1]
+        else:
+            # Fallback to hardcoded PROPRIO_DIM if not found in batch
+            detected_proprio_dim = PROPRIO_DIM
+            if distributed_state.is_main_process:
+                print(f"Warning: Could not detect proprio dimension from batch, using constant PROPRIO_DIM={PROPRIO_DIM}")
+
+        if distributed_state.is_main_process:
+            print(f"Detected proprio dimension: {detected_proprio_dim}D")
+            if detected_proprio_dim != PROPRIO_DIM:
+                print(f"  Note: This differs from the hardcoded PROPRIO_DIM constant ({PROPRIO_DIM}D)")
+                print(f"  Using detected dimension ({detected_proprio_dim}D) for backward compatibility")
+
+        # Initialize ProprioProjector with the detected dimension
+        proprio_projector = init_module(
+            ProprioProjector,
+            "proprio_projector",
+            cfg,
+            device_id,
+            {"llm_dim": vla.module.llm_dim, "proprio_dim": detected_proprio_dim},
+        )
+
+    # Instantiate optimizer (moved here to include proprio_projector parameters)
+    trainable_params = [param for param in vla.parameters() if param.requires_grad]
+    if cfg.use_l1_regression or cfg.use_diffusion:
+        trainable_params += [param for param in action_head.parameters() if param.requires_grad]
+    if cfg.use_diffusion:
+        trainable_params += [param for param in noisy_action_projector.parameters() if param.requires_grad]
+    if cfg.use_proprio:
+        trainable_params += [param for param in proprio_projector.parameters() if param.requires_grad]
+    print(f"# total trainable params: {sum(p.numel() for p in trainable_params)}")
+    optimizer = AdamW(trainable_params, lr=cfg.learning_rate)
+
+    # Record original learning rate
+    original_lr = optimizer.param_groups[0]["lr"]
+
+    # Create learning rate scheduler
+    scheduler = MultiStepLR(
+        optimizer,
+        milestones=[cfg.num_steps_before_decay],  # Number of steps after which LR will change
+        gamma=0.1,  # Multiplicative factor of learning rate decay
+    )
+
+    # Load optimizer and scheduler state if resuming
+    if cfg.resume:
+        optimizer_path = os.path.join(cfg.vla_path, f"optimizer--{cfg.resume_step}_checkpoint.pt")
+        scheduler_path = os.path.join(cfg.vla_path, f"scheduler--{cfg.resume_step}_checkpoint.pt")
+
+        if os.path.exists(optimizer_path):
+            print(f"Loading optimizer state: {optimizer_path}")
+            optimizer_state = torch.load(optimizer_path, weights_only=False, map_location="cpu")
+            optimizer.load_state_dict(optimizer_state)
+        else:
+            print(f"WARNING: Optimizer checkpoint not found at {optimizer_path}")
+
+        if os.path.exists(scheduler_path):
+            print(f"Loading scheduler state: {scheduler_path}")
+            scheduler_state = torch.load(scheduler_path, weights_only=False, map_location="cpu")
+            scheduler.load_state_dict(scheduler_state)
+        else:
+            print(f"WARNING: Scheduler checkpoint not found at {scheduler_path}")
+
     # Deque to store recent train metrics (used for computing smoothened metrics for gradient accumulation)
     recent_metrics = {
         "loss_value": deque(maxlen=cfg.grad_accumulation_steps),
@@ -1039,7 +1131,7 @@ def finetune(cfg: FinetuneConfig) -> None:
     }
 
     # Start training
-    with tqdm.tqdm(total=cfg.max_steps, leave=False) as progress:
+    with tqdm.tqdm(total=cfg.max_steps, initial=cfg.resume_step if cfg.resume else 0, leave=False) as progress:
         vla.train()
         optimizer.zero_grad()
         for batch_idx, batch in enumerate(dataloader):
@@ -1121,6 +1213,8 @@ def finetune(cfg: FinetuneConfig) -> None:
                     action_head=action_head if (cfg.use_l1_regression or cfg.use_diffusion) else None,
                     train_dataset=train_dataset,
                     distributed_state=distributed_state,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
                 )
 
             # Test model on validation set

@@ -29,7 +29,9 @@ def make_oxe_dataset_kwargs(
     is_local_policy=False
 ) -> Dict[str, Any]:
     """Generates config (kwargs) for given dataset from Open-X Embodiment."""
-    dataset_kwargs = deepcopy(OXE_DATASET_CONFIGS[dataset_name])
+    # Strip version from dataset name for config lookup (e.g., "name:1.0.1" -> "name")
+    dataset_name_key = dataset_name.split(":")[0]
+    dataset_kwargs = deepcopy(OXE_DATASET_CONFIGS[dataset_name_key])
 
     if is_local_policy:
         # make wrist camera the primary view
@@ -76,7 +78,7 @@ def make_oxe_dataset_kwargs(
         dataset_kwargs["language_key"] = "language_instruction"
 
     # Specify Standardization Transform
-    dataset_kwargs["standardize_fn"] = OXE_STANDARDIZATION_TRANSFORMS[dataset_name]
+    dataset_kwargs["standardize_fn"] = OXE_STANDARDIZATION_TRANSFORMS[dataset_name_key]
 
     # Add any aux arguments
     if "aux_kwargs" in dataset_kwargs:

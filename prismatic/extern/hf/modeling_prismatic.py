@@ -124,13 +124,29 @@ class PrismaticVisionBackbone(nn.Module):
         Returns:
             A configured featurizer model
         """
-        featurizer = timm.create_model(
-            model_id,
-            pretrained=False,
-            num_classes=0,
-            img_size=img_size,
-            act_layer=act_layer,
-        )
+        print(f"            - [PrismaticVisionBackbone._create_featurizer] Creating featurizer for model_id: {model_id}")
+        print(f"            - [PrismaticVisionBackbone._create_featurizer] img_size: {img_size}, act_layer: {act_layer}")
+        
+        try:
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] Creating TIMM model with pretrained=True...")
+            featurizer = timm.create_model(
+                model_id,
+                pretrained=True,  # Changed from False to True to avoid unnecessary downloads
+                num_classes=0,
+                img_size=img_size,
+                act_layer=act_layer,
+            )
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] TIMM model created successfully!")
+        except Exception as e:
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] Error creating TIMM model: {e}")
+            print(f"            - [PrismaticVisionBackbone._create_featurizer] Falling back to pretrained=False...")
+            featurizer = timm.create_model(
+                model_id,
+                pretrained=False,
+                num_classes=0,
+                img_size=img_size,
+                act_layer=act_layer,
+            )
 
         # Monkey-patch the forward function to extract the second-to-last layer features
         num_blocks = len(featurizer.blocks)
@@ -195,13 +211,17 @@ class PrismaticVisionBackbone(nn.Module):
         """
         if self.num_images_in_input == 1:
             if not self.use_fused_vision_backbone:
-                return self.featurizer(pixel_values)
+                result = self.featurizer(pixel_values)
+                return result
 
             # Split `pixel_values :: [bsz, 2 * 3, resolution, resolution]` =>> featurize =>> channel stack
             img, img_fused = torch.split(pixel_values, [3, 3], dim=1)
-            patches, patches_fused = self.featurizer(img), self.fused_featurizer(img_fused)
+            
+            patches = self.featurizer(img)
+            patches_fused = self.fused_featurizer(img_fused)
 
-            return torch.cat([patches, patches_fused], dim=2)
+            result = torch.cat([patches, patches_fused], dim=2)
+            return result
 
         else:
             assert self.use_fused_vision_backbone, "Multi-image inputs require using fused backbone!"

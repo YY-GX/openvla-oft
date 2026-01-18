@@ -1,0 +1,26 @@
+[
+  {
+    "bddl_file": "KITCHEN_SCENE1_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+    "reason": "visualize_above_pose returned False"
+  },
+  {
+    "bddl_file": "KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate_pick.bddl",
+    "reason": "visualize_above_pose returned False"
+  },
+  {
+    "bddl_file": "KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet_place.bddl",
+    "reason": "visualize_above_pose returned False"
+  },
+  {
+    "bddl_file": "KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+    "reason": "visualize_above_pose returned False"
+  },
+  {
+    "bddl_file": "KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet_place.bddl",
+    "reason": "visualize_above_pose returned False"
+  },
+  {
+    "bddl_file": "KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf_place.bddl",
+    "reason": "visualize_above_pose returned False"
+  }
+]

@@ -1,0 +1,111 @@
+PHASE 3 PIPELINE REORGANIZATION SUMMARY
+========================================
+Date: 2025-10-31 (Updated)
+
+1. DIRECTORY & FILE RENAMING
+-----------------------------
+Directory Changes:
+  annotations/           → config/
+  custom_long_horizon_eval/ → evaluation/
+  utils/                 → motion_planning/ → utils/ (final location)
+  utils/mplib_motion_planner/ → motion_planning/mplib/
+
+File Renames & Moves:
+  config/:
+    unified_task_config.json → task_config.json
+
+  evaluation/:
+    execute_long_horizon_pipeline_recovery.py → evaluate.py
+    2_phase2_task_sequence_planner_clean.py  → task_planner.py → utils/task_planner.py
+    4_phase2_gt_pose_calculator_clean.py     → pose_calculator.py → utils/pose_calculator.py
+
+  data_generation/:
+    generate_augmented_demos.py              → generate_demos.py
+    1_extract_object_ee_pose_pairs_phase2_v1.py → extract_pose_pairs.py
+
+  utils/:
+    task_planner.py      (moved from evaluation/)
+    pose_calculator.py   (moved from evaluation/)
+    skill_checker.py     (moved from motion_planning/)
+
+  motion_planning/:
+    CLI_motion_planner.py                    → standard_planner.py
+
+  motion_planning/mplib/:
+    mplib_mp.py                              → planner.py
+    mplib_planner.py                         → mplib_core.py
+    mplib_planner_ori.py                     → [DELETED - old backup]
+
+2. IMPORT PATH UPDATES
+----------------------
+Updated all Python files to reflect new structure:
+
+Old Imports:
+  from scripts.phase2.annotations.config_loader import ...
+  from scripts.phase2.utils.motion_planner import ...
+  from scripts.phase2.utils.skill_success_checker import ...
+  from scripts.phase2.mplib_motion_planner.mplib_mp import ...
+
+New Imports:
+  from scripts.phase3.pipeline.config.config_loader import ...
+  from scripts.phase3.pipeline.motion_planning.standard_planner import ...
+  from scripts.phase3.pipeline.utils.skill_checker import ...
+  from scripts.phase3.pipeline.utils.task_planner import ...
+  from scripts.phase3.pipeline.utils.pose_calculator import ...
+  from scripts.phase3.pipeline.motion_planning.mplib.planner import ...
+
+Module Load Paths (in evaluate.py):
+  OLD: script_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/scripts/phase2"
+  NEW: script_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/scripts/phase3/pipeline"
+
+  OLD: load_module(f"{script_dir}/2_phase2_task_sequence_planner_clean.py", ...)
+       load_module(f"{script_dir}/4_phase2_gt_pose_calculator_clean.py", ...)
+       load_module(f"{script_dir}/utils/skill_success_checker.py", ...)
+
+  NEW: load_module(f"{script_dir}/utils/task_planner.py", ...)
+       load_module(f"{script_dir}/utils/pose_calculator.py", ...)
+       load_module(f"{script_dir}/utils/skill_checker.py", ...)
+
+Config File Paths:
+  OLD: .../scripts/phase2/annotations/unified_task_config.json
+  NEW: .../scripts/phase3/pipeline/config/task_config.json
+
+FINAL STRUCTURE
+---------------
+scripts/phase3/pipeline/
+├── config/              # Configuration files and loader
+│   ├── config_loader.py
+│   └── task_config.json
+├── evaluation/          # Long-horizon task evaluation
+│   └── evaluate.py      # Main evaluation script
+├── utils/               # Shared utilities (planning, checking, pose calc)
+│   ├── task_planner.py
+│   ├── pose_calculator.py
+│   └── skill_checker.py
+├── data_generation/     # Demo generation and pose extraction
+│   ├── generate_demos.py
+│   └── extract_pose_pairs.py
+├── motion_planning/     # Motion planning implementations
+│   ├── standard_planner.py
+│   └── mplib/           # MPLib-based planner
+│       ├── planner.py   # Main API
+│       ├── mplib_core.py
+│       ├── planner_core.py
+│       ├── action_utils.py
+│       ├── robot_models/
+│       ├── utils/
+│       └── examples/
+├── outputs/             # All outputs
+│   ├── images/
+│   ├── videos/
+│   └── results/
+└── ai_comments/         # AI-generated documentation
+
+BENEFITS
+--------
+- Removed cryptic prefixes (phase2_, numbered files)
+- Self-documenting structure (evaluation/, motion_planning/, config/)
+- Clean separation of concerns
+- Professional naming conventions
+- All imports updated for consistency
+- No external dependencies on phase2 structure

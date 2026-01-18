@@ -1,0 +1,367 @@
+{
+  "analysis_date": "2025-12-10T19:29:38.736499",
+  "composite_tasks": {
+    "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it.bddl": {
+      "required_skills": [
+        {
+          "skill_name": "turn_on_the_stove",
+          "exists_in_config": true,
+          "bddl_files": [
+            "KITCHEN_SCENE3_turn_on_the_stove.bddl",
+            "KITCHEN_SCENE9_turn_on_the_stove.bddl"
+          ],
+          "bddl_files_exist": [
+            "KITCHEN_SCENE3_turn_on_the_stove.bddl",
+            "KITCHEN_SCENE9_turn_on_the_stove.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "pick_moka_pot",
+          "exists_in_config": true,
+          "bddl_files": [
+            "KITCHEN_SCENE3_put_the_moka_pot_on_the_stove_pick.bddl",
+            "KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "KITCHEN_SCENE3_put_the_moka_pot_on_the_stove_pick.bddl",
+            "KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_moka_pot_on_the_stove",
+          "exists_in_config": true,
+          "bddl_files": [
+            "KITCHEN_SCENE3_put_the_moka_pot_on_the_stove_place.bddl",
+            "KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "KITCHEN_SCENE3_put_the_moka_pot_on_the_stove_place.bddl",
+            "KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        }
+      ],
+      "all_skills_available": true,
+      "missing_skills": [],
+      "skills_with_missing_bddl": []
+    },
+    "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket.bddl": {
+      "required_skills": [
+        {
+          "skill_name": "pick_alphabet_soup",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_alphabet_soup_in_basket",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "pick_cream_cheese",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_cream_cheese_in_basket",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        }
+      ],
+      "all_skills_available": true,
+      "missing_skills": [],
+      "skills_with_missing_bddl": []
+    },
+    "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket.bddl": {
+      "required_skills": [
+        {
+          "skill_name": "pick_alphabet_soup",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_alphabet_soup_in_basket",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "pick_tomato_sauce",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_tomato_sauce_in_basket",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        }
+      ],
+      "all_skills_available": true,
+      "missing_skills": [],
+      "skills_with_missing_bddl": []
+    },
+    "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket.bddl": {
+      "required_skills": [
+        {
+          "skill_name": "pick_cream_cheese",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_cream_cheese_in_basket",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "pick_butter",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket_pick.bddl",
+            "LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket_pick.bddl",
+            "LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_butter_in_basket",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        }
+      ],
+      "all_skills_available": true,
+      "missing_skills": [],
+      "skills_with_missing_bddl": []
+    },
+    "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate.bddl": {
+      "required_skills": [
+        {
+          "skill_name": "pick_white_mug",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_pick.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_pick.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_white_mug_on_the_plate",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_place.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_place.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "pick_yellow_and_white_mug",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_yellow_and_white_mug_on_right_plate",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        }
+      ],
+      "all_skills_available": true,
+      "missing_skills": [],
+      "skills_with_missing_bddl": []
+    },
+    "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate.bddl": {
+      "required_skills": [
+        {
+          "skill_name": "pick_white_mug",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_pick.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_pick.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_white_mug_on_the_plate",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_place.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_place.bddl",
+            "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "pick_chocolate_pudding",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate_pick.bddl",
+            "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate_pick.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate_pick.bddl",
+            "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate_pick.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        },
+        {
+          "skill_name": "place_chocolate_pudding_to_right_of_plate",
+          "exists_in_config": true,
+          "bddl_files": [
+            "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate_place.bddl"
+          ],
+          "bddl_files_exist": [
+            "LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate_place.bddl"
+          ],
+          "bddl_files_missing": [],
+          "all_bddl_files_exist": true
+        }
+      ],
+      "all_skills_available": true,
+      "missing_skills": [],
+      "skills_with_missing_bddl": []
+    }
+  },
+  "summary": {
+    "total_composite_tasks": 6,
+    "total_unique_skills_required": 17,
+    "skills_missing_from_config": 0,
+    "skills_with_missing_bddl_files": 0,
+    "all_skills_available": true
+  },
+  "all_required_skills": [
+    "pick_alphabet_soup",
+    "pick_butter",
+    "pick_chocolate_pudding",
+    "pick_cream_cheese",
+    "pick_moka_pot",
+    "pick_tomato_sauce",
+    "pick_white_mug",
+    "pick_yellow_and_white_mug",
+    "place_alphabet_soup_in_basket",
+    "place_butter_in_basket",
+    "place_chocolate_pudding_to_right_of_plate",
+    "place_cream_cheese_in_basket",
+    "place_moka_pot_on_the_stove",
+    "place_tomato_sauce_in_basket",
+    "place_white_mug_on_the_plate",
+    "place_yellow_and_white_mug_on_right_plate",
+    "turn_on_the_stove"
+  ]
+}

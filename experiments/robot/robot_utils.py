@@ -8,10 +8,17 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from experiments.robot.openvla_utils import (
-    get_vla,
-    get_vla_action,
-)
+# Make OpenVLA imports optional to support Pi0.5 environments
+try:
+    from experiments.robot.openvla_utils import (
+        get_vla,
+        get_vla_action,
+    )
+    OPENVLA_AVAILABLE = True
+except ImportError:
+    OPENVLA_AVAILABLE = False
+    get_vla = None
+    get_vla_action = None
 
 # Initialize important constants
 ACTION_DIM = 7

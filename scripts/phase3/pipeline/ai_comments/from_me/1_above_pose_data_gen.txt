@@ -1,0 +1,19 @@
+  my advisor does not like the current extracting relative pose from demos plan. So we need to turn to another plan:
+  1. load hdf5 demo
+  2. detect trigger timestep (different for place and other two, pick & other). contact for those two, completetion timestep for place
+  3. key difference:
+  3.1 obtain object position (xyz)
+  3.2 obtain a point above object (xy the same, z + 10cm), 10 cm is a hyperparam, called above_height. let's call this above point above_pt.
+  3.3 sample a position around above_pt. for xy, sample range: 1cm. for z, sample range: 1.5 cm. call this shifted_above_pt
+  3.4 for ori, use the same one for ee's rest pose's ori.
+  3.5 combine shifted_above_pt and same ori together, we obtain a ee pose that shall facing downward to objects above it. let's call this above_pose.
+  4. for pick and other skills, move ee to above_pose directly. for place, shall replay demo until object pickedup, run 5 timesteps more, and then move to above_pose
+  (motivation, for placing skills, we shall ensure it starts from some state where object is alreday pickedup). Use MPlib motion planner to do these movings.
+  5. after mp moves to the above_pose, calculate distance between the above_pose and all ee poses in the demo before trigger timestep, pick the ee pose in the demo
+  closest to the above_pose, use mplib mp to reahc that ee pose.
+  6. after reaching the closest pose before trigger timestep, replay the rest demo until success.
+
+  several other notes:
+  1. only if the whole process lead to skill success, then we save the generated demo. for those failure cases, we could also save them, but save to other folders.
+  2. only from step 5 (already reach above_pose), the generated demo starts.
+  3. for each skill's each demo, we could repeat 3-6 for several times to generate several demos.

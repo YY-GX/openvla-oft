@@ -21,6 +21,11 @@ Usage:
             --libero_raw_data_dir ./LIBERO/libero/datasets/libero_spatial \
             --libero_target_dir ./LIBERO/libero/datasets/libero_spatial_no_noops
 
+
+    python experiments/robot/libero/regenerate_libero_dataset.py \
+            --libero_task_suite libero_10 \
+            --libero_raw_data_dir datasets/hdf5_datasets/libero_10 \
+            --libero_target_dir datasets/hdf5_datasets/libero_10_no_noops
 """
 
 import argparse
@@ -95,7 +100,7 @@ def main(args):
     num_success = 0
     num_noops = 0
 
-    for task_id in tqdm.tqdm(range(77, num_tasks_in_suite)):
+    for task_id in tqdm.tqdm(range(0, num_tasks_in_suite)):
         # Get task in suite
         task = task_suite.get_task(task_id)
         env, task_description = get_libero_env(task, "llava", resolution=IMAGE_RESOLUTION)

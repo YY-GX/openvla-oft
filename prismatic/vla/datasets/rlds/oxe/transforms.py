@@ -841,6 +841,26 @@ def libero_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
     return trajectory
 
 
+def libero_baseline_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Transform for baseline LIBERO datasets with extended state (e.g., including target object pose).
+    Unlike libero_dataset_transform, this keeps the full state tensor intact without splitting.
+    """
+    # gripper action is in -1 (open)...1 (close) --> clip to 0...1, flip --> +1 = open, 0 = close
+    gripper_action = trajectory["action"][:, -1:]
+    gripper_action = invert_gripper_actions(tf.clip_by_value(gripper_action, 0, 1))
+
+    trajectory["action"] = tf.concat(
+        [
+            trajectory["action"][:, :6],
+            gripper_action,
+        ],
+        axis=1,
+    )
+    # Keep state as-is without splitting (supports extended state like 14D with target object pose)
+    return trajectory
+
+
 def aloha_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
     # Don't need to do anything because dataset is already in the correct format
     return trajectory
@@ -930,6 +950,24 @@ OXE_STANDARDIZATION_TRANSFORMS = {
     "libero_local3": libero_dataset_transform,
     "libero44_local": libero_dataset_transform,
     "libero44_local_depth": libero_dataset_transform,
+    "libero_atomic_skills": libero_dataset_transform,
+    "libero_atomic_skills_augmented_debug": libero_dataset_transform,
+    "libero_atomic_skills_augmented_farther": libero_dataset_transform,
+    "libero_atomic_skills_augmented_closer": libero_dataset_transform,
+    "libero_atomic_skills_augmented_closer_original": libero_dataset_transform,
+    "libero_atomic_skills_augmented_long_id1": libero_dataset_transform,
+    "libero_atomic_skills_augmented_long_id2": libero_dataset_transform,
+    "libero_atomic_skills_augmented_long_id3": libero_dataset_transform,
+    "libero_above_atomic": libero_dataset_transform,
+    "libero_above_atomic_both_view": libero_dataset_transform,
+    "libero_above_atomic_long_id2": libero_dataset_transform,
+    "libero_above_atomic_h100_bs16": libero_dataset_transform,
+    "libero_above_atomic_long_id8": libero_dataset_transform,
+    "libero_above_atomic_long_id9": libero_dataset_transform,
+    "libero_above_atomic_long_id10": libero_dataset_transform,
+    "libero_above_atomic_long_id10_wrist_mask": libero_dataset_transform,
+    "libero_above_atomic_libero_long_all17": libero_dataset_transform,
+    "libero_oft_obj_long_id10": libero_baseline_dataset_transform,
     ### ALOHA fine-tuning datasets
     "aloha1_fold_shorts_20_demos": aloha_dataset_transform,
     "aloha1_fold_shirt_30_demos": aloha_dataset_transform,

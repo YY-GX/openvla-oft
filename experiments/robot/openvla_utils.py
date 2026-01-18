@@ -32,6 +32,7 @@ from prismatic.vla.constants import (
     ACTION_PROPRIO_NORMALIZATION_TYPE,
 )
 from prismatic.vla.datasets.rlds.utils.data_utils import NormalizationType
+from prismatic.util import ensure_bfloat16, ensure_bfloat16_batch
 
 # Initialize important constants
 DATE = time.strftime("%Y_%m_%d")
@@ -279,14 +280,24 @@ def get_vla(cfg: Any) -> torch.nn.Module:
         check_model_logic_mismatch(cfg.pretrained_checkpoint)
 
     # Load the model
+    # Convert path to string and resolve any path issues
+    checkpoint_path = str(cfg.pretrained_checkpoint)
+    if not model_is_on_hf_hub(checkpoint_path):
+        # For local paths, ensure they exist and are properly formatted
+        from pathlib import Path
+        checkpoint_path = str(Path(checkpoint_path).resolve())
+        if not Path(checkpoint_path).exists():
+            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
     vla = AutoModelForVision2Seq.from_pretrained(
-        cfg.pretrained_checkpoint,
+        checkpoint_path,
         # attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16,
         load_in_8bit=cfg.load_in_8bit,
         load_in_4bit=cfg.load_in_4bit,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
+        local_files_only=not model_is_on_hf_hub(checkpoint_path),
     )
 
     # If using FiLM, wrap the vision backbone to allow for infusion of language inputs
@@ -449,7 +460,7 @@ def get_noisy_action_projector(cfg: Any, llm_dim: int) -> NoisyActionProjector:
     noisy_action_projector = NoisyActionProjector(
         llm_dim=llm_dim,
     ).to(DEVICE)
-    noisy_action_projector = noisy_action_projector.to(torch.bfloat16).to(DEVICE)
+    noisy_action_projector = ensure_bfloat16(noisy_action_projector).to(DEVICE)
     noisy_action_projector.eval()
 
     # Find and load checkpoint

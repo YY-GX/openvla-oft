@@ -1,0 +1,2638 @@
+#!/usr/bin/env python3
+"""
+1_generate_augmented_demos.py
+
+Generate augmented demonstrations with pose shifting for robust VLA training.
+Based on generate_local_demos_fixed_single_replay.py but enhanced with Phase 2 pose shifting.
+
+This script creates additional training data by:
+1. Loading original demonstrations
+2. Generating shifted poses outside initial state distribution  
+3. Using motion planner to navigate from shifted poses to family poses
+4. Saving successful augmented demonstrations with metadata
+"""
+
+"""
+python scripts/phase2/0_generate_augmented_demos_reaching.py \
+      --debug_skill \
+      --debug_num_demos 1 \
+      --family_distances 0.08 0.10 0.12 \
+      --far_shift_distance 0.10 \
+      --far_shift_orientation 60
+
+python scripts/phase2/0_generate_augmented_demos_reaching.py \
+      --debug      
+"""
+
+import argparse
+import json
+import os
+import glob
+import numpy as np
+# Handle h5py import issue
+try:
+    import h5py
+except ImportError as e:
+    print(f"h5py import error: {e}")
+    print("Try: conda install -c conda-forge h5py --force-reinstall")
+    exit(1)
+import pickle
+import cv2
+from typing import Dict, List, Tuple, Optional
+from pathlib import Path
+from tqdm import tqdm
+from scipy.spatial.transform import Rotation as R
+from datetime import datetime
+import time
+import pickle
+import random
+
+# Add project paths (following Phase 1 pattern)
+import sys
+import os
+sys.path.append('/mnt/arc/yygx/pkgs_baselines/openvla-oft')
+sys.path.append('/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss')
+from libero.libero import benchmark
+from experiments.robot.libero.libero_utils import get_libero_env
+
+# Import Phase 2 utilities
+from scripts.phase2.utils.simple_pose_shift_utils import (
+    generate_shifted_pose,
+    find_family_pose,
+    load_initial_states_for_skill,
+    collect_step_data
+)
+
+# Import motion planner from Phase 1
+from scripts.phase3.pipeline.motion_planning.standard_planner import MotionPlanner
+
+
+# Configuration parameters (NEW: Distance-based family states + Far-away-back)
+DEFAULT_FAMILY_DISTANCES = [0.08, 0.10, 0.12]  # 8cm, 10cm, 12cm from contact
+DEFAULT_FAR_SHIFT_DISTANCE = 0.10  # 10cm away for far-away pose
+DEFAULT_FAR_SHIFT_ORIENTATION = 60  # 60° rotation for far-away pose
+MOTION_PLANNER_METHOD = "cartesian_linear"
+DEFAULT_MOTION_PLANNER_STEPS = 50
+DEFAULT_MOTION_PLANNER_POS_GAIN = 5.0
+DEFAULT_MOTION_PLANNER_ORI_GAIN = 5.0
+
+# Motion planner thresholds for different phases
+DEFAULT_FAR_POSITION_THRESHOLD = 0.05  # 5cm - loose threshold for moving to far-away pose
+DEFAULT_FAR_ORIENTATION_THRESHOLD_DEG = 30  # 15° - loose threshold for far-away pose
+DEFAULT_RETURN_POSITION_THRESHOLD = 0.05  # 1cm - medium threshold for returning from far-away
+DEFAULT_RETURN_ORIENTATION_THRESHOLD_DEG = 60  # 10° - medium threshold for return phase
+DEFAULT_POSITION_THRESHOLD = 0.02  # 0.5cm - tight threshold for final correction
+DEFAULT_ORIENTATION_THRESHOLD_DEG = 15  # 5° - tight threshold for final correction
+
+# DEPRECATED: Old Gaussian noise approach (kept for backward compatibility)
+# DEFAULT_POSITION_SHIFT_RANGE = 0.05  # ±5cm
+# DEFAULT_ORIENTATION_SHIFT_RANGE_DEG = 60  # ±60 degrees
+
+# Global logging configuration
+VERBOSE = False
+DEBUG_MODE = False
+DEBUG_SKILL_MODE = False
+
+def log_always(message: str):
+    """Log critical information that should always be shown."""
+    print(message)
+
+def log_info(message: str):
+    """Log important information (shown in normal and verbose modes)."""
+    print(message)
+
+def log_verbose(message: str):
+    """Log detailed information only when verbose mode is enabled."""
+    if VERBOSE:
+        print(message)
+
+def log_debug(message: str):
+    """Log debug information only in debug modes."""
+    if DEBUG_MODE or DEBUG_SKILL_MODE or VERBOSE:
+        print(f"🐛 {message}")
+
+
+def save_checkpoint(checkpoint_path: str, processed_skills: List[str], current_skill_idx: int,
+                   total_skills: int, start_time: float, skill_timing_data: Dict):
+    """Save processing checkpoint to resume later."""
+    checkpoint_data = {
+        'processed_skills': processed_skills,
+        'current_skill_idx': current_skill_idx,
+        'total_skills': total_skills,
+        'start_time': start_time,
+        'skill_timing_data': skill_timing_data,
+        'timestamp': time.time()
+    }
+
+    try:
+        with open(checkpoint_path, 'wb') as f:
+            pickle.dump(checkpoint_data, f)
+        print(f"💾 Checkpoint saved: {len(processed_skills)}/{total_skills} skills completed")
+    except Exception as e:
+        print(f"❌ Failed to save checkpoint: {e}")
+
+
+def load_checkpoint(checkpoint_path: str) -> Optional[Dict]:
+    """Load processing checkpoint to resume."""
+    if not os.path.exists(checkpoint_path):
+        return None
+
+    try:
+        with open(checkpoint_path, 'rb') as f:
+            checkpoint_data = pickle.load(f)
+
+        processed_count = len(checkpoint_data['processed_skills'])
+        total_count = checkpoint_data['total_skills']
+
+        elapsed_time = time.time() - checkpoint_data['start_time']
+        elapsed_hours = int(elapsed_time // 3600)
+        elapsed_minutes = int((elapsed_time % 3600) // 60)
+
+        print(f"📂 Checkpoint found: {processed_count}/{total_count} skills completed")
+        print(f"   Elapsed time: {elapsed_hours}h {elapsed_minutes}m")
+        print(f"   Last saved: {datetime.fromtimestamp(checkpoint_data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}")
+
+        return checkpoint_data
+    except Exception as e:
+        print(f"❌ Failed to load checkpoint: {e}")
+        return None
+
+
+def log_success(message: str, verbose_only: bool = False):
+    """Log success messages with ✅ prefix."""
+    if verbose_only:
+        log_verbose(f"✅ {message}")
+    else:
+        print(f"✅ {message}")
+
+def log_error(message: str):
+    """Log error messages with ❌ prefix."""
+    print(f"❌ {message}")
+
+def log_warning(message: str, verbose_only: bool = False):
+    """Log warning messages with ⚠️ prefix."""
+    if verbose_only:
+        log_verbose(f"⚠️ {message}")
+    else:
+        print(f"⚠️ {message}")
+
+def log_mp_result(success: bool, pos_err: float, ori_err: float, target_pos: np.ndarray, current_pos: np.ndarray):
+    """Log motion planning results with key metrics (always shown)."""
+    status = "SUCCESS" if success else "FAILED"
+    log_info(f"   Motion Planning {status}: pos_err={pos_err*1000:.1f}mm, ori_err={ori_err:.1f}°")
+    log_verbose(f"   Target EE: [{target_pos[0]:.3f}, {target_pos[1]:.3f}, {target_pos[2]:.3f}]")
+    log_verbose(f"   Current EE: [{current_pos[0]:.3f}, {current_pos[1]:.3f}, {current_pos[2]:.3f}]")
+
+
+def categorize_skill_file(bddl_filename: str) -> str:
+    """
+    Categorize a BDDL file based on its filename suffix.
+    
+    Args:
+        bddl_filename: Name of the BDDL file
+        
+    Returns:
+        Category: 'pick', 'place', or 'atomic'
+    """
+    if bddl_filename.endswith('_pick.bddl'):
+        return 'pick'
+    elif bddl_filename.endswith('_place.bddl'):
+        return 'place'
+    else:
+        return 'atomic'
+
+
+def find_original_bddl_from_mapping(atomic_bddl_path: str, cat_split_map: Dict) -> Optional[str]:
+    """
+    Find the original BDDL file path for a given atomic skill using the mapping.
+    
+    Args:
+        atomic_bddl_path: Path to the atomic skill BDDL file
+        cat_split_map: Loaded cat_split_map.json data
+        
+    Returns:
+        Original BDDL file path or None if not found
+    """
+    # Check if this atomic skill path is in the values of the mapping
+    for original_path, atomic_paths in cat_split_map.items():
+        if atomic_bddl_path in atomic_paths:
+            return original_path
+    return None
+
+
+def get_demo_filename_from_bddl(original_bddl_path: str) -> str:
+    """
+    Convert a BDDL file path to its corresponding demo HDF5 filename.
+    
+    Args:
+        original_bddl_path: Path to the original BDDL file
+        
+    Returns:
+        Demo HDF5 filename
+    """
+    # Extract the base name without path and .bddl extension
+    base_name = os.path.basename(original_bddl_path).replace('.bddl', '')
+    return f"{base_name}_demo.hdf5"
+
+
+def discover_atomic_skills(atomic_skills_dir: str, debug: bool = False) -> List[Tuple[str, str]]:
+    """
+    Discover and categorize all atomic skill BDDL files.
+
+    Args:
+        atomic_skills_dir: Directory containing atomic skill BDDL files
+        debug: If True, return specific debug tasks
+
+    Returns:
+        List of (file_path, category) tuples
+    """
+    atomic_skills = []
+
+    # Get all BDDL files in the main atomic_skills directory (not subdirectories)
+    bddl_pattern = os.path.join(atomic_skills_dir, "*.bddl")
+    bddl_files = sorted(glob.glob(bddl_pattern))
+
+    for bddl_file in bddl_files:
+        category = categorize_skill_file(os.path.basename(bddl_file))
+        atomic_skills.append((bddl_file, category))
+
+    if debug:
+        # Return specific debug tasks
+        debug_task_names = [
+            "KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet.bddl",  # atomic
+            "KITCHEN_SCENE1_put_the_black_bowl_on_the_plate_pick.bddl",   # pick
+            "KITCHEN_SCENE1_put_the_black_bowl_on_the_plate_place.bddl"   # place
+        ]
+
+        debug_skills = []
+        for file_path, category in atomic_skills:
+            bddl_filename = os.path.basename(file_path)
+            if bddl_filename in debug_task_names:
+                debug_skills.append((file_path, category))
+
+        log_debug(f"Debug mode: Selected specific tasks:")
+        for file_path, category in debug_skills:
+            log_debug(f"   - {os.path.basename(file_path)} ({category})")
+
+        return debug_skills
+
+    return atomic_skills
+
+
+def map_to_source_demos(atomic_skills: List[Tuple[str, str]], 
+                       cat_split_map: Dict, 
+                       raw_demo_dir: str) -> List[Dict]:
+    """
+    Map atomic skills to their source demonstration files.
+    
+    Args:
+        atomic_skills: List of (file_path, category) tuples
+        cat_split_map: Loaded cat_split_map.json data
+        raw_demo_dir: Directory containing original demo HDF5 files
+        
+    Returns:
+        List of dictionaries with mapping information
+    """
+    mappings = []
+    
+    for atomic_bddl_path, category in atomic_skills:
+        # Find the original BDDL file for this atomic skill
+        original_bddl_path = find_original_bddl_from_mapping(atomic_bddl_path, cat_split_map)
+        
+        if original_bddl_path is None:
+            log_warning(f"No mapping found for {atomic_bddl_path}", verbose_only=True)
+            continue
+
+        # Get the demo filename
+        demo_filename = get_demo_filename_from_bddl(original_bddl_path)
+        demo_full_path = os.path.join(raw_demo_dir, demo_filename)
+
+        # Check if the demo file exists
+        if not os.path.exists(demo_full_path):
+            log_warning(f"Demo file not found: {demo_full_path}", verbose_only=True)
+            continue
+        
+        mapping_info = {
+            'atomic_bddl_path': atomic_bddl_path,
+            'category': category,
+            'original_bddl_path': original_bddl_path,
+            'demo_filename': demo_filename,
+            'demo_full_path': demo_full_path,
+            'skill_name': os.path.basename(atomic_bddl_path).replace('.bddl', '')
+        }
+        mappings.append(mapping_info)
+    
+    return mappings
+
+
+def load_hdf5_demo_data(demo_file_path: str) -> Dict:
+    """Load demonstration data from HDF5 file."""
+    def recursively_extract(group):
+        result = {}
+        for key in group:
+            item = group[key]
+            if isinstance(item, h5py.Dataset):
+                result[key] = item[()]
+            elif isinstance(item, h5py.Group):
+                result[key] = recursively_extract(item)
+        return result
+
+    with h5py.File(demo_file_path, 'r') as file:
+        return recursively_extract(file)
+
+
+def detect_trigger_timestep(actions: np.ndarray, env, states: np.ndarray) -> Optional[int]:
+    """
+    Detect trigger timestep for pick skills (contact or gripper closing).
+
+    This function implements the trigger detection logic for pick skills by:
+    1. First attempting gripper closing detection (gripper command: negative -> positive)
+    2. Falling back to end-effector contact detection if no gripper closing found
+
+    Args:
+        actions: Action array from demonstration (timesteps, 7)
+        env: Libero environment for contact detection
+        states: Simulation states for replay during contact detection
+
+    Returns:
+        Timestep of trigger event, or None if not found
+    """
+    # First try gripper closing detection
+    gripper_commands = actions[:, -1]  # Last dimension is gripper
+    for i in range(1, len(gripper_commands)):
+        if gripper_commands[i - 1] < 0 and gripper_commands[i] > 0:
+            print(f"Found gripper closing at timestep {i}")
+            return i
+
+    # Fallback to contact detection
+    print("No gripper closing found, trying contact detection...")
+    EE_GEOM_NAMES = [
+        "robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1",
+        "gripper0_hand_collision", "gripper0_finger0_collision", "gripper0_finger1_collision"
+    ]
+
+    for t, sim_state in enumerate(states):
+        env.set_init_state(sim_state)
+        for j in range(env.sim.data.ncon):
+            contact = env.sim.data.contact[j]
+            g1 = env.sim.model.geom_id2name(contact.geom1)
+            g2 = env.sim.model.geom_id2name(contact.geom2)
+            if g1 in EE_GEOM_NAMES or g2 in EE_GEOM_NAMES:
+                print(f"Found EE contact at timestep {t}")
+                return t
+
+    print("No trigger found")
+    return None
+
+
+def detect_trigger_timestep_contact_only(actions: np.ndarray, env, states: np.ndarray) -> Optional[int]:
+    """
+    Detect trigger timestep for atomic skills using proper replay method.
+
+    FIXED: Previously used env.set_init_state() which fails to properly update
+    contact detection. Now uses env.step() replay method for accurate contact detection.
+
+    Args:
+        actions: Action array from demonstration
+        env: Libero environment for contact detection
+        states: Simulation states (unused in fixed version)
+
+    Returns:
+        Timestep of the trigger event, or None if not found.
+    """
+    print("Detecting contact trigger for atomic skill...")
+    EE_GEOM_NAMES = [
+        "robot0_eef", "robot0_gripper0_finger0", "robot0_gripper0_finger1",
+        "gripper0_hand_collision", "gripper0_finger0_collision", "gripper0_finger1_collision"
+    ]
+
+    # Use proper replay method instead of set_init_state
+    env.reset()
+    for t, action in enumerate(actions):
+        # Check contacts BEFORE taking action
+        for j in range(env.sim.data.ncon):
+            contact = env.sim.data.contact[j]
+            g1 = env.sim.model.geom_id2name(contact.geom1)
+            g2 = env.sim.model.geom_id2name(contact.geom2)
+            if g1 in EE_GEOM_NAMES or g2 in EE_GEOM_NAMES:
+                print(f"Found EE contact at timestep {t}")
+                return t
+
+        # Take the action
+        obs, reward, done, _ = env.step(action)
+        if done:
+            break
+
+    print("No contact trigger found")
+    return None
+
+
+def find_family_states_by_distance(
+    demo_data: Dict,
+    trigger_timestep: int,
+    env,
+    distances: List[float] = [0.08, 0.10, 0.12]
+) -> List[Tuple[int, np.ndarray, np.ndarray, float]]:
+    """
+    Find family states based on cartesian distance from contact point.
+
+    Args:
+        demo_data: Demo data containing actions and states
+        trigger_timestep: Timestep where contact/gripper closing occurs
+        env: LIBERO environment
+        distances: List of target distances in meters (default: [8cm, 10cm, 12cm])
+
+    Returns:
+        List of (family_timestep, family_ee_pos, family_ee_quat, actual_distance) tuples
+    """
+    actions = demo_data['actions']
+    family_states = []
+
+    # Step 1: Get contact point EE position
+    env.reset()
+    for t in range(trigger_timestep):
+        if t < len(actions):
+            env.step(actions[t])
+    obs = env.env._get_observations()
+    contact_ee_pos = obs['robot0_eef_pos'].copy()
+
+    print(f"   📍 Contact EE position at trigger timestep {trigger_timestep}: [{contact_ee_pos[0]:.3f}, {contact_ee_pos[1]:.3f}, {contact_ee_pos[2]:.3f}]")
+
+    # Step 2: For each target distance, find timestep by searching backwards from contact
+    for target_dist in distances:
+        env.reset()
+        found = False
+        best_timestep = None
+        best_distance_diff = float('inf')
+
+        # Replay and track all timesteps BEFORE trigger (approaching contact)
+        timestep_data = []
+        for t in range(trigger_timestep):  # Don't include trigger itself
+            env.step(actions[t])
+
+            obs = env.env._get_observations()
+            current_ee_pos = obs['robot0_eef_pos']
+            current_ee_quat = obs['robot0_eef_quat']
+            distance = np.linalg.norm(current_ee_pos - contact_ee_pos)
+
+            timestep_data.append((t, current_ee_pos.copy(), current_ee_quat.copy(), distance))
+
+        # Search for the timestep with distance closest to target_dist
+        # We want timesteps BEFORE contact (distance should be decreasing as we approach)
+        for t, pos, quat, distance in timestep_data:
+            # We want the timestep where distance is closest to target_dist
+            distance_diff = abs(distance - target_dist)
+
+            if distance_diff < best_distance_diff:
+                best_timestep = t
+                best_distance_diff = distance_diff
+                best_distance = distance
+                found = True
+
+        if found:
+            # Get the pose at best timestep
+            t, pos, quat, distance = timestep_data[best_timestep]
+            family_states.append((t, pos, quat, distance))
+            print(f"   ✅ Found family state at {target_dist*100:.0f}cm: timestep={t}, distance={distance*100:.1f}cm")
+        else:
+            print(f"   ⚠️  Could not find family state at {target_dist*100:.0f}cm (demo too short or no valid timesteps)")
+
+    return family_states
+
+
+def convert_steps_to_demo(step_data_list: List[Dict]) -> Dict:
+    """Convert collected step data to demo format for HDF5 saving."""
+    # Safety check: ensure step_data_list is a list of dictionaries
+    if not isinstance(step_data_list, list):
+        raise TypeError(f"step_data_list must be a list, got {type(step_data_list)}")
+    
+    if len(step_data_list) == 0:
+        raise ValueError("step_data_list cannot be empty")
+    
+    # Check if all elements are dictionaries
+    for i, step in enumerate(step_data_list):
+        if not isinstance(step, dict):
+            raise TypeError(f"step_data_list[{i}] must be a dict, got {type(step)}: {step}")
+    
+    demo_data = {}
+    demo_data['actions'] = np.array([step['actions'] for step in step_data_list])
+    demo_data['dones'] = np.array([step['dones'] for step in step_data_list], dtype=np.uint8)
+    demo_data['rewards'] = np.array([step['rewards'] for step in step_data_list], dtype=np.uint8)
+    demo_data['robot_states'] = np.array([step['robot_states'] for step in step_data_list])
+    demo_data['states'] = np.array([step['states'] for step in step_data_list])
+    
+    # Convert observations
+    demo_data['obs'] = {}
+    obs_keys = step_data_list[0]['obs'].keys()
+    for key in obs_keys:
+        obs_data = np.array([step['obs'][key] for step in step_data_list])
+        demo_data['obs'][key] = obs_data
+    
+    return demo_data
+
+
+def save_multiple_demos_to_hdf5(demos_data: List[Dict], output_file_path: str):
+    """Save multiple demo data to HDF5 file with correct structure."""
+    with h5py.File(output_file_path, 'w') as h5file:
+        data_group = h5file.create_group('data')
+        
+        for demo_idx, demo_data in enumerate(demos_data):
+            demo_group = data_group.create_group(f'demo_{demo_idx}')
+            
+            # Core datasets
+            demo_group.create_dataset('actions', data=demo_data['actions'])
+            demo_group.create_dataset('dones', data=demo_data['dones'])
+            demo_group.create_dataset('rewards', data=demo_data['rewards'])
+            demo_group.create_dataset('robot_states', data=demo_data['robot_states'])
+            demo_group.create_dataset('states', data=demo_data['states'])
+            
+            # Observation group
+            obs_group = demo_group.create_group('obs')
+            for obs_key, obs_data in demo_data['obs'].items():
+                obs_group.create_dataset(obs_key, data=obs_data)
+
+
+def extract_and_save_initial_states_original(original_demos: List[List[Dict]], init_file_path: str, offsets):
+    """
+    Extract and save initial states from original demos.
+
+    Args:
+        original_demos: List of demo trajectories
+        init_file_path: Path to save initial states
+        offsets: Either a single int (fixed offset for all demos) or List[int] (one per demo)
+    """
+    all_states = []
+
+    # Handle both single offset and list of offsets
+    if isinstance(offsets, int):
+        # Fixed offset for all demos (pick/place skills)
+        offset_list = [offsets] * len(original_demos)
+    else:
+        # Per-demo offsets (atomic skills with middle family state)
+        offset_list = offsets
+
+    for demo_idx, (demo_steps, offset) in enumerate(zip(original_demos, offset_list)):
+        if len(demo_steps) <= offset:
+            print(f"Warning: Demo {demo_idx} not enough steps ({len(demo_steps)}) for offset {offset}")
+            init_idx = 0
+        else:
+            init_idx = offset
+
+        init_step = demo_steps[init_idx]
+
+        # Combine joint, gripper, and extra states (following reference script pattern)
+        joint_states = init_step['obs']['joint_states']
+        gripper_states = init_step['obs']['gripper_states']
+        extra_state = init_step['states']
+
+        initial_state = np.concatenate([joint_states, gripper_states, extra_state])
+        all_states.append(initial_state)
+
+    with open(init_file_path, 'wb') as f:
+        pickle.dump(all_states, f)
+
+
+def create_empty_failure_video(skill_name: str, demo_type: str, demo_key: str, output_dir: str, fps: int = 30):
+    """
+    Create an empty failure video with a text overlay indicating the failure.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create a simple black frame with failure text
+    height, width = 480, 640  # Standard video dimensions
+    black_frame = np.zeros((height, width, 3), dtype=np.uint8)
+    
+    # Add text overlay
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text = f"FAILURE: {demo_key}"
+    text_size = cv2.getTextSize(text, font, 1, 2)[0]
+    text_x = (width - text_size[0]) // 2
+    text_y = (height + text_size[1]) // 2
+    
+    cv2.putText(black_frame, text, (text_x, text_y), font, 1, (0, 0, 255), 2)
+    
+    # Create video filenames with _failure suffix
+    agentview_path = os.path.join(output_dir, f"{skill_name}_{demo_type}_{demo_key}_failure_agentview.mp4")
+    wrist_path = os.path.join(output_dir, f"{skill_name}_{demo_type}_{demo_key}_failure_wrist.mp4")
+    
+    # Save the same frame for both cameras
+    save_video_frames([black_frame], agentview_path, fps)
+    save_video_frames([black_frame], wrist_path, fps)
+    
+    print(f"🎬 Saved failure videos for {demo_key} ({demo_type}):")
+    print(f"   AgentView: {agentview_path}")
+    print(f"   Wrist: {wrist_path}")
+
+
+def save_debug_videos(step_data_list: List[Dict], skill_name: str, demo_type: str, demo_key: str,
+                     output_dir: str = "./debug_videos", fps: int = 30, is_failure: bool = False):
+    """
+    Save debug videos for both camera views from step data.
+
+    Args:
+        step_data_list: List of step data dictionaries
+        skill_name: Name of the skill being processed
+        demo_type: Type of demo ("original" or "augmented")
+        demo_key: Demo identifier
+        output_dir: Directory to save videos
+        fps: Frames per second for video
+    """
+    if not step_data_list:
+        print(f"⚠️  No step data to create videos for {demo_key} - creating empty failure video")
+        # Create empty failure video
+        create_empty_failure_video(skill_name, demo_type, demo_key, output_dir, fps)
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Extract frames from step data
+    agentview_frames = []
+    wrist_frames = []
+
+    for step_data in step_data_list:
+        if 'obs' in step_data:
+            agentview_frames.append(step_data['obs']['agentview_rgb'])
+            wrist_frames.append(step_data['obs']['eye_in_hand_rgb'])
+
+    # Save agentview video
+    failure_suffix = "_failure" if is_failure else ""
+    agentview_filename = f"{skill_name}_{demo_type}_{demo_key}{failure_suffix}_agentview.mp4"
+    agentview_path = os.path.join(output_dir, agentview_filename)
+    save_video_frames(agentview_frames, agentview_path, fps)
+
+    # Save wrist camera video
+    wrist_filename = f"{skill_name}_{demo_type}_{demo_key}{failure_suffix}_wrist.mp4"
+    wrist_path = os.path.join(output_dir, wrist_filename)
+    save_video_frames(wrist_frames, wrist_path, fps)
+
+    print(f"🎬 Saved debug videos for {demo_key} ({demo_type}):")
+    print(f"   Agentview: {agentview_path}")
+    print(f"   Wrist cam: {wrist_path}")
+
+
+def save_video_frames(frames: List[np.ndarray], output_path: str, fps: int = 30):
+    """
+    Save a list of RGB frames as MP4 video.
+
+    Args:
+        frames: List of RGB frames (H, W, 3)
+        output_path: Path for output video file
+        fps: Frames per second
+    """
+    if not frames:
+        print(f"⚠️  No frames to save for {output_path}")
+        return
+
+    try:
+        # Get frame dimensions
+        height, width = frames[0].shape[:2]
+
+        # Create video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        if not video_writer.isOpened():
+            print(f"❌ Failed to open video writer for {output_path}")
+            return
+
+        # Write frames
+        for frame in frames:
+            # Convert RGB to BGR for OpenCV
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            video_writer.write(frame_bgr)
+
+        video_writer.release()
+        print(f"✅ Video saved: {output_path} ({len(frames)} frames, {width}x{height})")
+
+    except Exception as e:
+        print(f"❌ Error saving video {output_path}: {e}")
+
+
+def save_initial_images_debug(collected_steps: List[Dict], skill_name: str, demo_type: str, demo_key: str,
+                             offset: int, output_dir: str, distance_cm: float = None):
+    """
+    Save initial images (at offset) for debugging purposes in debug mode.
+
+    Args:
+        collected_steps: List of step data from a successful demo
+        skill_name: Name of the skill being processed
+        demo_type: Type of demo ("original" or "augmented")
+        demo_key: Demo identifier
+        offset: The offset used (for filename)
+        output_dir: Base output directory
+        distance_cm: Distance from contact state in cm (for augmented demos)
+    """
+    if not collected_steps:
+        log_verbose(f"No steps to extract initial images from for {demo_key}")
+        return
+
+    # Create initial images subdirectory
+    init_images_dir = os.path.join(output_dir, "initial_images")
+    os.makedirs(init_images_dir, exist_ok=True)
+
+    # Determine which step to use as "initial" based on offset
+    # For collected demos, the offset-th step represents our initial state
+    if len(collected_steps) <= offset:
+        # If demo is shorter than offset, use the first step
+        init_step_idx = 0
+        log_verbose(f"Demo shorter than offset ({len(collected_steps)} <= {offset}), using first step")
+    else:
+        init_step_idx = offset
+
+    init_step = collected_steps[init_step_idx]
+
+    if 'obs' not in init_step:
+        log_verbose(f"No observation data in initial step for {demo_key}")
+        return
+
+    obs = init_step['obs']
+
+    # Build filename with distance info for augmented demos
+    if demo_type == "augmented" and distance_cm is not None:
+        distance_str = f"_dist{distance_cm:.1f}cm"
+    else:
+        distance_str = ""
+
+    # Save agentview image
+    if 'agentview_rgb' in obs:
+        agentview_img = obs['agentview_rgb']
+        if demo_type == "augmented":
+            agentview_filename = f"{skill_name}_augmented_{demo_key}{distance_str}_agentview.png"
+        else:
+            agentview_filename = f"{skill_name}_{demo_type}_{demo_key}_init{offset}_agentview.png"
+        agentview_path = os.path.join(init_images_dir, agentview_filename)
+
+        try:
+            # Convert RGB to BGR for OpenCV
+            agentview_bgr = cv2.cvtColor(agentview_img, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(agentview_path, agentview_bgr)
+            log_verbose(f"💾 Saved agentview initial image: {agentview_path}")
+        except Exception as e:
+            log_verbose(f"❌ Failed to save agentview image: {e}")
+
+    # Save wrist camera image
+    if 'eye_in_hand_rgb' in obs:
+        wrist_img = obs['eye_in_hand_rgb']
+        if demo_type == "augmented":
+            wrist_filename = f"{skill_name}_augmented_{demo_key}{distance_str}_wrist.png"
+        else:
+            wrist_filename = f"{skill_name}_{demo_type}_{demo_key}_init{offset}_wrist.png"
+        wrist_path = os.path.join(init_images_dir, wrist_filename)
+
+        try:
+            # Convert RGB to BGR for OpenCV
+            wrist_bgr = cv2.cvtColor(wrist_img, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(wrist_path, wrist_bgr)
+            log_verbose(f"💾 Saved wrist initial image: {wrist_path}")
+        except Exception as e:
+            log_verbose(f"❌ Failed to save wrist image: {e}")
+
+    log_debug(f"Initial images saved for {demo_key} ({demo_type}) with offset={offset}{distance_str}")
+
+
+def extract_and_save_initial_states_augmented(augmented_demos: List[List[Dict]], init_file_path: str, offset: int):
+    """Extract and save initial states from augmented demos (shifted pose as initial state)."""
+    all_states = []
+
+    # Process augmented demos: initial state is the actual shifted pose (first step, index 0)
+    for demo_steps in augmented_demos:
+        if len(demo_steps) == 0:
+            print(f"Warning: Empty augmented demo")
+            continue
+
+        init_step = demo_steps[0]  # First step contains the shifted pose state
+
+        # Combine joint, gripper, and extra states (following reference script pattern)
+        joint_states = init_step['obs']['joint_states']
+        gripper_states = init_step['obs']['gripper_states']
+        extra_state = init_step['states']
+
+        initial_state = np.concatenate([joint_states, gripper_states, extra_state])
+        all_states.append(initial_state)
+
+    with open(init_file_path, 'wb') as f:
+        pickle.dump(all_states, f)
+
+
+def apply_pose_shifting_augmentation(demo_data: Dict,
+                                   demo_key: str,
+                                   skill_name: str,
+                                   current_skill_initial_states: List[np.ndarray],
+                                   env,
+                                   args,
+                                   trigger_timestep: int,
+                                   skill_type: str = "atomic") -> Tuple[List[List[Dict]], List[Dict]]:
+    """
+    Apply pose shifting augmentation to a single demonstration.
+
+    Args:
+        demo_data: Single demo data from HDF5
+        demo_key: Demo identifier
+        skill_name: Skill name
+        current_skill_initial_states: Initial states for current skill
+        env: Environment instance
+        args: Command line arguments
+        trigger_timestep: Detected trigger timestep
+        skill_type: Type of skill ("atomic", "pick", "place")
+
+    Returns:
+        Tuple of (successful_augmented_demos, augmentation_metadata)
+    """
+    actions = demo_data['actions']
+    states = demo_data['states']
+
+    print(f"\n🎯 Phase 2: Applying pose shifting augmentation to {demo_key}")
+    print(f"   Original demo length: {len(actions)} steps")
+    print(f"   Trigger timestep: {trigger_timestep}")
+
+    successful_augmented_demos = []
+    augmentation_metadata = []
+
+    # NEW: Find family states based on cartesian distance
+    print(f"\n📏 Finding family states by cartesian distance...")
+    family_states = find_family_states_by_distance(
+        demo_data,
+        trigger_timestep,
+        env,
+        distances=args.family_distances
+    )
+
+    if len(family_states) == 0:
+        print(f"   ❌ No family states found for {demo_key}")
+        return [], []
+
+    print(f"   ✅ Found {len(family_states)} family states for {demo_key}")
+
+    # Get contact EE position for metadata
+    env.reset()
+    for t in range(trigger_timestep):
+        if t < len(actions):
+            env.step(actions[t])
+    obs_contact = env.env._get_observations()
+    contact_ee_pos = obs_contact['robot0_eef_pos'].copy()
+
+    # Loop over each family state
+    for family_idx, (family_timestep, family_ee_pos, family_ee_quat, family_distance) in enumerate(family_states):
+        print(f"\n{'='*80}")
+        print(f"Family State {family_idx+1}/{len(family_states)}")
+        print(f"   Timestep: {family_timestep}")
+        print(f"   Distance from contact: {family_distance*100:.1f}cm")
+        print(f"{'='*80}")
+
+        try:
+            # Step 1: Replay to real family state
+            print(f"   🔄 Step 1: Replaying to family state at timestep {family_timestep}...")
+            real_family_pose = (family_ee_pos, family_ee_quat)
+
+            # Initialize motion planner
+            motion_planner = MotionPlanner(
+                env,
+                method=MOTION_PLANNER_METHOD,
+                num_steps=args.motion_planner_steps,
+                pos_gain=args.motion_planner_pos_gain,
+                ori_gain=args.motion_planner_ori_gain,
+                verbose=VERBOSE or DEBUG_MODE or DEBUG_SKILL_MODE
+            )
+
+            # Step 2: Retry loop for finding a good far-away pose
+            # Only MP1 has distance shrinking; MP2 just retries with the same far-away pose
+            max_attempts = 20
+            attempt = 0
+            mp_success = False
+            current_far_shift_distance = args.far_shift_distance
+            motion_planning_steps_far_to_pseudo = None
+            pseudo_family_pos = None
+            obs_pseudo = None
+
+            while not mp_success and attempt < max_attempts:
+                attempt += 1
+
+                print(f"   🚀 Attempt {attempt}/{max_attempts}: Trying far-away-and-back motion...")
+
+                # Reset to family state
+                env.reset()
+                for t in range(family_timestep):
+                    if t < len(actions):
+                        env.step(actions[t])
+
+                # Generate far-away pose (with shrinking after 5 MP1 failures)
+                # Distance shrinking only applies to MP1 - makes far-away pose easier to reach
+                if attempt > 5:
+                    current_far_shift_distance = args.far_shift_distance * 0.7
+                    print(f"  ⚠️  After {attempt-1} MP1 failures, shrinking distance to {current_far_shift_distance*100:.1f}cm")
+
+                far_position, far_quaternion = generate_shifted_pose(
+                    real_family_pose,
+                    position_shift_range=current_far_shift_distance,
+                    orientation_shift_range=np.radians(args.far_shift_orientation)
+                )
+
+                pos_diff = np.linalg.norm(far_position - family_ee_pos)
+                print(f"      Far-away pose: distance={pos_diff*100:.1f}cm")
+
+                # MP1: Move to far-away pose (NO DATA COLLECTION) - LOOSE THRESHOLD
+                # Retry MP1 up to 3 times with same far-away pose before trying a new far-away pose
+                mp1_success = False
+                for mp1_retry in range(3):
+                    if mp1_retry > 0:
+                        print(f"      Retrying MP1 (attempt {mp1_retry+1}/3)...")
+                        # Reset to family state
+                        env.reset()
+                        for t in range(family_timestep):
+                            if t < len(actions):
+                                env.step(actions[t])
+
+                    mp1_success, _ = motion_planner.move_to_pose(
+                        far_position,
+                        far_quaternion,
+                        position_threshold=args.far_position_threshold,
+                        orientation_threshold=np.radians(args.far_orientation_threshold_deg),
+                        collect_data=False,
+                        skill_type=skill_type
+                    )
+
+                    if mp1_success:
+                        break
+
+                if not mp1_success:
+                    print(f"   ❌ Attempt {attempt}: MP1 failed after 3 retries, trying new far-away pose...")
+                    continue
+
+                # MP2: Move back toward family (WITH DATA COLLECTION) - MEDIUM THRESHOLD
+                # Retry MP2 up to 3 times with the same far-away pose before trying a new far-away pose
+                # This creates "pseudo family state" due to MP inaccuracy
+                mp2_success = False
+                for mp2_retry in range(3):
+                    if mp2_retry > 0:
+                        print(f"      Retrying MP2 (attempt {mp2_retry+1}/3)...")
+
+                    mp2_success, motion_planning_steps_far_to_pseudo = motion_planner.move_to_pose(
+                        family_ee_pos,
+                        family_ee_quat,
+                        position_threshold=args.return_position_threshold,
+                        orientation_threshold=np.radians(args.return_orientation_threshold_deg),
+                        collect_data=True,
+                        skill_type=skill_type
+                    )
+
+                    if mp2_success:
+                        break
+
+                if not mp2_success:
+                    print(f"   ❌ Attempt {attempt}: MP2 failed after 3 retries, trying new far-away pose...")
+                    continue
+
+                # Success! Both MP1 and MP2 completed
+                mp_success = True
+
+                # Get pseudo family state (where MP actually stopped)
+                obs_pseudo = env.env._get_observations()
+                pseudo_family_pos = obs_pseudo['robot0_eef_pos']
+                mp_residual_error = np.linalg.norm(pseudo_family_pos - family_ee_pos)
+                print(f"   ✅ Attempt {attempt}: MP succeeded, residual error={mp_residual_error*1000:.2f}mm")
+
+            if not mp_success:
+                print(f"   ❌ Failed after {max_attempts} attempts, skipping this family state")
+
+                # Save failure video if we have any collected steps from MP2
+                if (DEBUG_MODE or DEBUG_SKILL_MODE) and motion_planning_steps_far_to_pseudo:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    distance_from_contact_cm = np.linalg.norm(family_ee_pos - contact_ee_pos) * 100
+                    save_debug_videos(
+                        motion_planning_steps_far_to_pseudo,
+                        skill_name,
+                        "augmented_failure_mp1_mp2",
+                        f"{demo_key}_family{family_idx}_dist{distance_from_contact_cm:.1f}cm",
+                        debug_video_dir,
+                        is_failure=True
+                    )
+
+                continue  # Skip to next family state
+
+            # Step 3: MP from pseudo family to real family (WITH DATA COLLECTION) - TIGHT THRESHOLD with retry
+            print(f"   🚀 Moving from pseudo family to real family (correction phase)...")
+
+            max_correction_attempts = 5
+            correction_attempt = 0
+            move3_success = False
+            motion_planning_steps_pseudo_to_real = None
+
+            while not move3_success and correction_attempt < max_correction_attempts:
+                correction_attempt += 1
+
+                move3_success, motion_planning_steps_pseudo_to_real = motion_planner.move_to_pose(
+                    family_ee_pos,
+                    family_ee_quat,
+                    position_threshold=args.position_threshold,
+                    orientation_threshold=np.radians(args.orientation_threshold_deg),
+                    collect_data=True,
+                    skill_type=skill_type
+                )
+
+                if not move3_success:
+                    print(f"   ⚠️  Correction attempt {correction_attempt}/{max_correction_attempts} failed, retrying...")
+                else:
+                    print(f"   ✅ Correction succeeded on attempt {correction_attempt}, collected {len(motion_planning_steps_pseudo_to_real)} steps from pseudo→real")
+
+            if not move3_success:
+                print(f"   ❌ Failed MP from pseudo to real family after {max_correction_attempts} attempts, skipping")
+
+                # Save failure video for MP3 failure
+                if (DEBUG_MODE or DEBUG_SKILL_MODE) and motion_planning_steps_pseudo_to_real:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    distance_from_contact_cm = np.linalg.norm(family_ee_pos - contact_ee_pos) * 100
+                    # Combine MP2 and MP3 steps for complete video
+                    combined_steps = motion_planning_steps_far_to_pseudo[-10:] + motion_planning_steps_pseudo_to_real
+                    save_debug_videos(
+                        combined_steps,
+                        skill_name,
+                        "augmented_failure_mp3",
+                        f"{demo_key}_family{family_idx}_dist{distance_from_contact_cm:.1f}cm",
+                        debug_video_dir,
+                        is_failure=True
+                    )
+
+                continue  # Skip to next family state
+
+            # Step 4: Replay from family timestep - collect ALL steps for complete video
+            print(f"   🎬 Replaying from family timestep (collecting all steps)...")
+
+            replay_steps_all = []  # All replay steps for complete video
+            replay_steps = []  # First 10 steps for augmented demo
+            max_replay_steps = 10
+            replay_success = False
+
+            for t in range(family_timestep, len(actions)):
+                action = actions[t]
+                obs, reward, done, _ = env.step(action)
+
+                # Collect all steps for complete video
+                step_data = collect_step_data(action, obs, reward, done, env)
+                replay_steps_all.append(step_data)
+
+                # Only keep first 10 steps for augmented demo
+                if len(replay_steps) < max_replay_steps:
+                    replay_steps.append(step_data)
+
+                if done:
+                    replay_success = True
+                    print(f"   ✅ Replay completed successfully at step {t}")
+                    break
+
+            if not replay_success:
+                print(f"   ❌ Replay did not complete, skipping this family state")
+
+                # Save failure video for replay failure
+                if DEBUG_MODE or DEBUG_SKILL_MODE:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    distance_from_contact_cm = np.linalg.norm(family_ee_pos - contact_ee_pos) * 100
+                    # Combine all collected steps for complete video
+                    combined_steps = motion_planning_steps_far_to_pseudo[-10:] + motion_planning_steps_pseudo_to_real + replay_steps_all
+                    save_debug_videos(
+                        combined_steps,
+                        skill_name,
+                        "augmented_failure_replay",
+                        f"{demo_key}_family{family_idx}_dist{distance_from_contact_cm:.1f}cm",
+                        debug_video_dir,
+                        is_failure=True
+                    )
+
+                continue  # Skip to next family state
+
+            print(f"   📊 Collected {len(replay_steps)} replay steps")
+
+            # Step 5: Compose final augmented demo
+            collected_steps = []
+
+            # Part 1: Last 10 timesteps from far→pseudo
+            if len(motion_planning_steps_far_to_pseudo) > 10:
+                far_to_pseudo_steps = motion_planning_steps_far_to_pseudo[-10:]
+                print(f"   📦 Part 1: Last 10/{len(motion_planning_steps_far_to_pseudo)} steps from far→pseudo")
+            else:
+                far_to_pseudo_steps = motion_planning_steps_far_to_pseudo
+                print(f"   📦 Part 1: All {len(far_to_pseudo_steps)} steps from far→pseudo (less than 10)")
+
+            collected_steps.extend(far_to_pseudo_steps)
+
+            # Part 2: Whole trajectory from pseudo→real
+            collected_steps.extend(motion_planning_steps_pseudo_to_real)
+            print(f"   📦 Part 2: All {len(motion_planning_steps_pseudo_to_real)} steps from pseudo→real")
+
+            # Part 3: First 10 timesteps of replay
+            collected_steps.extend(replay_steps)
+            print(f"   📦 Part 3: {len(replay_steps)} replay steps")
+
+            print(f"   🎉 Augmented demo created: {len(collected_steps)} total steps")
+            print(f"      Composition: {len(far_to_pseudo_steps)} (far→pseudo) + {len(motion_planning_steps_pseudo_to_real)} (pseudo→real) + {len(replay_steps)} (replay)")
+
+            successful_augmented_demos.append(collected_steps)
+
+            # Save initial images in debug mode (augmented demo)
+            # Initial image is from the last 10 steps of MP2 (far→pseudo), which is the first part of collected_steps
+            if DEBUG_MODE or DEBUG_SKILL_MODE:
+                distance_from_contact_cm = np.linalg.norm(family_ee_pos - contact_ee_pos) * 100
+                # Save image from the beginning of collected_steps (which are the last 10 steps of MP2)
+                save_initial_images_debug(
+                    collected_steps,
+                    skill_name,
+                    "augmented",
+                    f"{demo_key}_family{family_idx}",
+                    offset=0,  # First step of collected_steps (last 10 of MP2)
+                    output_dir=args.output_dir,
+                    distance_cm=distance_from_contact_cm
+                )
+
+            # Save success video in debug mode (augmented demo only)
+            if DEBUG_MODE or DEBUG_SKILL_MODE:
+                debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                save_debug_videos(
+                    collected_steps,
+                    skill_name,
+                    "augmented_success",
+                    f"{demo_key}_family{family_idx}_dist{distance_from_contact_cm:.1f}cm",
+                    debug_video_dir,
+                    is_failure=False
+                )
+
+                # Save complete trajectory video (augmented + rest of replay)
+                complete_trajectory = collected_steps + replay_steps_all[len(replay_steps):]  # Add remaining replay steps
+                save_debug_videos(
+                    complete_trajectory,
+                    skill_name,
+                    "complete_trajectory",
+                    f"{demo_key}_family{family_idx}_dist{distance_from_contact_cm:.1f}cm",
+                    debug_video_dir,
+                    is_failure=False
+                )
+                print(f"   🎬 Saved complete trajectory video: {len(complete_trajectory)} steps total")
+                print(f"      ({len(collected_steps)} augmented + {len(replay_steps_all[len(replay_steps):])} rest of replay)")
+
+            # Store metadata
+            metadata = {
+                'demo_key': demo_key,
+                'family_idx': family_idx,
+                'family_timestep': family_timestep,
+                'family_distance_from_contact': np.linalg.norm(family_ee_pos - contact_ee_pos),
+                'real_family_pose': [family_ee_pos.tolist(), family_ee_quat.tolist()],
+                'pseudo_family_pose': [pseudo_family_pos.tolist(), obs_pseudo['robot0_eef_quat'].tolist()],
+                'mp_residual_error': mp_residual_error,
+                'mp_attempts': attempt,
+                'steps_collected': len(collected_steps),
+                'demo_composition': {
+                    'far_to_pseudo': len(far_to_pseudo_steps),
+                    'pseudo_to_real': len(motion_planning_steps_pseudo_to_real),
+                    'replay': len(replay_steps)
+                }
+            }
+            augmentation_metadata.append(metadata)
+
+        except Exception as e:
+            print(f"   ❌ Family state {family_idx+1} failed with error: {e}")
+            import traceback
+            traceback.print_exc()
+            continue  # Skip to next family state
+
+    print(f"\n📊 Augmentation summary for {demo_key}: {len(successful_augmented_demos)} successful augmentations")
+
+    return successful_augmented_demos, augmentation_metadata
+
+
+def process_pick_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str]:
+    """
+    Process a single pick skill with Phase 2 pose shifting augmentation.
+    Returns (success, message) tuple.
+    """
+    skill_name = mapping['skill_name']
+    atomic_bddl_path = mapping['atomic_bddl_path']
+    demo_file_path = mapping['demo_full_path']
+
+    print(f"\n🎯 Phase 2: Processing Pick Skill with Augmentation: {skill_name}")
+    print(f"=" * 80)
+
+    try:
+        # Load demonstration data
+        print("📁 Loading demonstration data...")
+        demo_data = load_hdf5_demo_data(demo_file_path)
+
+        if 'data' not in demo_data:
+            return False, "No 'data' group found in HDF5 file"
+
+        demo_keys = list(demo_data['data'].keys())
+        if args.debug_skill:
+            demo_keys = demo_keys[:5]  # debug_skill mode: 5 demos
+        elif args.debug:
+            demo_keys = demo_keys[:2]  # debug mode: 2 demos
+
+        print(f"📊 Found {len(demo_keys)} demonstrations")
+
+        # Load current skill initial states for distribution analysis
+        print(f"📁 Loading initial states for skill: {skill_name}")
+        try:
+            current_skill_initial_states = load_initial_states_for_skill(skill_name, args.atomic_demos_path)
+        except Exception as e:
+            print(f"❌ Failed to load initial states: {e}")
+            return False, f"Failed to load initial states: {e}"
+
+        # Initialize environment
+        print("🌍 Initializing libero environment...")
+        bm_name = "atomic_skills"
+        task_suite = benchmark.get_benchmark_dict()[bm_name]()
+
+        # Find task by extracting task name from atomic BDDL path
+        atomic_task_name = os.path.basename(mapping['atomic_bddl_path']).replace('.bddl', '')
+        task = None
+        for t in task_suite.tasks:
+            if t.name == atomic_task_name:
+                task = t
+                break
+
+        if task is None:
+            return False, f"Task not found: {atomic_task_name}"
+
+        # Use large horizon to accommodate motion planning for pose shifts
+        env, _ = get_libero_env(task, model_family="openvla", resolution=256, horizon=2000)
+
+        # Process each demonstration
+        original_successful_demos = []
+        original_demo_middle_offsets = []  # Track middle family offset for each original demo
+        all_augmented_demos = []
+        all_augmentation_metadata = []
+
+        for demo_idx, demo_key in enumerate(tqdm(demo_keys, desc=f"Processing {skill_name} demos")):
+            demo = demo_data['data'][demo_key]
+            actions = demo['actions']
+            states = demo['states']
+
+            print(f"\n📋 Processing {demo_key} ({demo_idx + 1}/{len(demo_keys)})")
+            print(f"   Demo length: {len(actions)} steps")
+
+            # Detect trigger timestep for pick skills (gripper closing + contact detection)
+            trigger_timestep = detect_trigger_timestep(actions, env, states)
+            if trigger_timestep is None:
+                print(f"❌ FAILURE: No trigger found for {demo_key}")
+                continue
+
+            print(f"✅ Trigger found at timestep {trigger_timestep}")
+
+            # Find family states by distance (8cm, 10cm, 12cm)
+            print(f"🔍 Finding family states by distance...")
+            family_states = find_family_states_by_distance(
+                {'actions': actions, 'states': states},
+                trigger_timestep,
+                env,
+                distances=args.family_distances
+            )
+
+            if not family_states:
+                print(f"❌ FAILURE: No family states found for {demo_key}")
+                continue
+
+            print(f"✅ Found {len(family_states)} family states:")
+            for idx, (timestep, pos, quat, dist) in enumerate(family_states):
+                print(f"   Family {idx}: timestep={timestep}, distance={dist*100:.1f}cm")
+
+            # Use the FARTHEST family state (last one, 12cm) as starting point for original demo
+            farthest_family_timestep, farthest_pos, farthest_quat, farthest_dist = family_states[-1]
+            print(f"📍 Starting original demo from farthest family state: timestep={farthest_family_timestep}, distance={farthest_dist*100:.1f}cm")
+
+            # Single replay for original demo starting from farthest family state
+            env.reset()
+            full_trajectory = []
+            actual_completion_step = None
+            replay_success = False
+
+            # Replay entire trajectory and collect all data
+            for t in range(len(actions)):
+                action = actions[t]
+                obs, reward, done, _ = env.step(action)
+
+                # Collect step data for entire trajectory
+                step_data = collect_step_data(action, obs, reward, done, env)
+                full_trajectory.append(step_data)
+
+                if done:
+                    replay_success = True
+                    actual_completion_step = t
+                    break
+
+            # Slice trajectory starting from farthest family state
+            if replay_success and actual_completion_step is not None:
+                start_idx = farthest_family_timestep
+                if start_idx <= actual_completion_step:
+                    # Normal case: family state is before completion
+                    pass
+                else:
+                    # Fallback: shouldn't happen, but handle it
+                    min_steps_needed = args.min_steps_fallback
+                    start_idx = max(0, actual_completion_step - min_steps_needed + 1)
+
+                # Slice the trajectory
+                end_idx = actual_completion_step + 1  # Include completion step
+                collected_steps = full_trajectory[start_idx:end_idx]
+
+                if len(collected_steps) > 0:
+                    print(f"✅ Original demo SUCCESS: {demo_key} - collected {len(collected_steps)} steps")
+
+                    # Calculate middle family offset for initial state
+                    middle_family_timestep, middle_pos, middle_quat, middle_dist = family_states[1]  # Index 1 = middle (10cm)
+                    middle_offset = middle_family_timestep - start_idx
+
+                    original_successful_demos.append(collected_steps)
+                    original_demo_middle_offsets.append(middle_offset)
+
+                    # Save initial images in debug mode (pick skill)
+                    # Use MIDDLE family state (10cm) for initial state image
+                    if args.debug or args.debug_skill:
+                        save_initial_images_debug(
+                            collected_steps,
+                            skill_name,
+                            "original",
+                            demo_key,
+                            offset=middle_offset,
+                            output_dir=args.output_dir,
+                            distance_cm=middle_dist * 100
+                        )
+
+                    # Save success video for original demo in debug_skill/debug mode
+                    if args.debug_skill or args.debug:
+                        debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                        save_debug_videos(
+                            collected_steps,
+                            skill_name,
+                            "original_success",
+                            f"{demo_key}_dist{middle_dist*100:.1f}cm",
+                            debug_video_dir,
+                            is_failure=False
+                        )
+
+                    # Phase 2: Apply pose shifting augmentation (multiple iterations)
+                    if not args.disable_augmentation:
+                        num_iterations = 2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations)
+                        for iteration in range(num_iterations):
+                            print(f"\n🔄 Augmentation iteration {iteration + 1}/{num_iterations} for {demo_key}")
+                            augmented_demos, augmentation_metadata = apply_pose_shifting_augmentation(
+                                demo, f"{demo_key}_iter{iteration}", skill_name, current_skill_initial_states,
+                                env, args, trigger_timestep, skill_type="pick"
+                            )
+
+                            all_augmented_demos.extend(augmented_demos)
+                            all_augmentation_metadata.extend(augmentation_metadata)
+                    else:
+                        print(f"⏭️  Skipping augmentation (disabled)")
+                else:
+                    print(f"❌ Original demo FAILURE: {demo_key} - no steps collected")
+                    # Save failure video in debug modes with whatever steps were collected
+                    if args.debug or args.debug_skill:
+                        debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                        save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir, is_failure=True)
+            else:
+                print(f"❌ Original demo FAILURE: {demo_key} - replay unsuccessful")
+                # Save failure video in debug modes with whatever steps were collected
+                if args.debug or args.debug_skill:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir)
+
+        env.close()
+
+        # Save results if we have successful demos (same logic as atomic skills)
+        success_messages = []
+
+        # Save original demos if we have them
+        if original_successful_demos:
+            # Save original demos to separate HDF5 file
+            original_demos_data = []
+            for demo_steps in original_successful_demos:
+                demo_data_formatted = convert_steps_to_demo(demo_steps)
+                original_demos_data.append(demo_data_formatted)
+
+            original_output_filename = f"{skill_name}_original_demo.hdf5"
+            original_output_path = os.path.join(args.output_dir, original_output_filename)
+            save_multiple_demos_to_hdf5(original_demos_data, original_output_path)
+            print(f"💾 Saved original HDF5 demo: {original_output_path}")
+
+            # Save initial states as {skill}.init (from original demos, middle family state at 10cm)
+            init_filename = f"{skill_name}.init"
+            init_path = os.path.join(args.output_dir, init_filename)
+            extract_and_save_initial_states_original(original_successful_demos, init_path, original_demo_middle_offsets)
+            print(f"💾 Saved initial states: {init_path} (from original demos, middle family state at 10cm)")
+
+            success_messages.append(f"original demos: {len(original_successful_demos)}")
+
+        # Save augmented demos if we have them
+        if all_augmented_demos:
+            # Save augmented demos to separate HDF5 file
+            augmented_demos_data = []
+            for demo_steps in all_augmented_demos:
+                demo_data_formatted = convert_steps_to_demo(demo_steps)
+                augmented_demos_data.append(demo_data_formatted)
+
+            augmented_output_filename = f"{skill_name}_augmented_demo.hdf5"
+            augmented_output_path = os.path.join(args.output_dir, augmented_output_filename)
+            save_multiple_demos_to_hdf5(augmented_demos_data, augmented_output_path)
+            print(f"💾 Saved augmented HDF5 demo: {augmented_output_path}")
+
+            success_messages.append(f"augmented demos: {len(all_augmented_demos)}")
+
+        if original_successful_demos or all_augmented_demos:
+            # Calculate success rates
+            original_success_rate = len(original_successful_demos) / len(demo_keys) if demo_keys else 0
+            total_possible_augmented = len(demo_keys) * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
+            augmented_success_rate = len(all_augmented_demos) / total_possible_augmented if total_possible_augmented > 0 else 0
+
+            print(f"📊 Success rates for {skill_name}:")
+            print(f"   Original demos: {original_success_rate:.2f} ({len(original_successful_demos)}/{len(demo_keys)})")
+            print(f"   Augmented demos: {augmented_success_rate:.2f} ({len(all_augmented_demos)}/{total_possible_augmented})")
+
+            # Store success rate in global dict for later JSON export
+            if not hasattr(process_atomic_skill_with_augmentation, 'skill_statistics'):
+                process_atomic_skill_with_augmentation.skill_statistics = {}
+
+            process_atomic_skill_with_augmentation.skill_statistics[skill_name] = {
+                'original_demos': len(original_successful_demos),
+                'augmented_demos': len(all_augmented_demos),
+                'total_demos': len(original_successful_demos) + len(all_augmented_demos),
+                'original_input_demos': len(demo_keys),
+                'total_possible_augmented': total_possible_augmented,
+                'original_success_rate': original_success_rate,
+                'augmented_success_rate': augmented_success_rate,
+                'augmentation_metadata': all_augmentation_metadata
+            }
+
+            return True, f"Successfully processed {', '.join(success_messages)}"
+        else:
+            return False, "No successful demonstrations found"
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Error processing {skill_name}: {error_details}")
+        return False, f"Error processing {skill_name}: {str(e)}"
+
+
+def process_place_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str]:
+    """
+    Process a single place skill with Phase 2 pose shifting augmentation.
+    Returns (success, message) tuple.
+    """
+    skill_name = mapping['skill_name']
+    atomic_bddl_path = mapping['atomic_bddl_path']
+    demo_file_path = mapping['demo_full_path']
+
+    print(f"\n🎯 Phase 2: Processing Place Skill with Augmentation: {skill_name}")
+    print(f"=" * 80)
+
+    try:
+        # Load demonstration data
+        print("📁 Loading demonstration data...")
+        demo_data = load_hdf5_demo_data(demo_file_path)
+
+        if 'data' not in demo_data:
+            return False, "No 'data' group found in HDF5 file"
+
+        demo_keys = list(demo_data['data'].keys())
+        if args.debug_skill:
+            demo_keys = demo_keys[:5]  # debug_skill mode: 5 demos
+        elif args.debug:
+            demo_keys = demo_keys[:2]  # debug mode: 2 demos
+
+        print(f"📊 Found {len(demo_keys)} demonstrations")
+
+        # Load current skill initial states for distribution analysis
+        print(f"📁 Loading initial states for skill: {skill_name}")
+        try:
+            current_skill_initial_states = load_initial_states_for_skill(skill_name, args.atomic_demos_path)
+        except Exception as e:
+            print(f"❌ Failed to load initial states: {e}")
+            return False, f"Failed to load initial states: {e}"
+
+        # Initialize environment
+        print("🌍 Initializing libero environment...")
+        bm_name = "atomic_skills"
+        task_suite = benchmark.get_benchmark_dict()[bm_name]()
+
+        # Find task by extracting task name from atomic BDDL path
+        atomic_task_name = os.path.basename(mapping['atomic_bddl_path']).replace('.bddl', '')
+        task = None
+        for t in task_suite.tasks:
+            if t.name == atomic_task_name:
+                task = t
+                break
+
+        if task is None:
+            return False, f"Task not found: {atomic_task_name}"
+
+        # Use large horizon to accommodate motion planning for pose shifts
+        env, _ = get_libero_env(task, model_family="openvla", resolution=256, horizon=2000)
+
+        # Process each demonstration
+        original_successful_demos = []
+        original_demo_middle_offsets = []  # Track middle family offset for each original demo
+        all_augmented_demos = []
+        all_augmentation_metadata = []
+
+        for demo_idx, demo_key in enumerate(tqdm(demo_keys, desc=f"Processing {skill_name} demos")):
+            demo = demo_data['data'][demo_key]
+            actions = demo['actions']
+            states = demo['states']
+
+            print(f"\n📋 Processing {demo_key} ({demo_idx + 1}/{len(demo_keys)})")
+            print(f"   Demo length: {len(actions)} steps")
+
+            # Quick check: simulate to find actual completion point
+            temp_env, _ = get_libero_env(task, model_family="openvla", resolution=256)
+            temp_obs = temp_env.reset()
+            actual_completion_step = None
+            for temp_t in range(len(actions)):
+                temp_action = actions[temp_t]
+                temp_obs, temp_reward, temp_done, _ = temp_env.step(temp_action)
+                if temp_done:
+                    actual_completion_step = temp_t
+                    break
+            temp_env.close()
+
+            if actual_completion_step is None:
+                print(f"❌ FAILURE: Task never completes for {demo_key}")
+                continue
+
+            print(f"✅ Task completes at timestep {actual_completion_step}")
+
+            # Find family states by distance (8cm, 10cm, 12cm from completion/contact)
+            print(f"🔍 Finding family states by distance...")
+            family_states = find_family_states_by_distance(
+                {'actions': actions, 'states': states},
+                actual_completion_step,
+                env,
+                distances=args.family_distances
+            )
+
+            if not family_states:
+                print(f"❌ FAILURE: No family states found for {demo_key}")
+                continue
+
+            print(f"✅ Found {len(family_states)} family states:")
+            for idx, (timestep, pos, quat, dist) in enumerate(family_states):
+                print(f"   Family {idx}: timestep={timestep}, distance={dist*100:.1f}cm")
+
+            # Use the FARTHEST family state (last one, 12cm) as starting point
+            farthest_family_timestep, farthest_pos, farthest_quat, farthest_dist = family_states[-1]
+            print(f"📍 Starting original demo from farthest family state: timestep={farthest_family_timestep}, distance={farthest_dist*100:.1f}cm")
+
+            start_idx = farthest_family_timestep
+            print(f"Collection range: steps {start_idx} to {actual_completion_step} (place skill)")
+
+            # Reset environment and replay (same as original script)
+            obs = env.reset()
+            collected_steps = []
+            replay_success = False
+
+            # Replay trajectory and collect from start_idx
+            for t in range(len(actions)):
+                action = actions[t]
+                obs, reward, done, _ = env.step(action)
+
+                # Start collecting from start_idx
+                if t >= start_idx:
+                    step_data = collect_step_data(action, obs, reward, done, env)
+                    collected_steps.append(step_data)
+
+                if done:
+                    # BDDL goal achieved - task is successful
+                    replay_success = True
+                    break
+
+            if replay_success and len(collected_steps) > 0:
+                print(f"✅ Original demo SUCCESS: {demo_key} - collected {len(collected_steps)} steps")
+
+                # Calculate middle family offset for initial state
+                middle_family_timestep, middle_pos, middle_quat, middle_dist = family_states[1]  # Index 1 = middle (10cm)
+                middle_offset = middle_family_timestep - start_idx
+
+                original_successful_demos.append(collected_steps)
+                original_demo_middle_offsets.append(middle_offset)
+
+                # Save initial images in debug mode (place skill)
+                # Use MIDDLE family state (10cm) for initial state image
+                if args.debug or args.debug_skill:
+                    save_initial_images_debug(
+                        collected_steps,
+                        skill_name,
+                        "original",
+                        demo_key,
+                        offset=middle_offset,
+                        output_dir=args.output_dir,
+                        distance_cm=middle_dist * 100
+                    )
+
+                # Save success video for original demo in debug_skill mode
+                if args.debug_skill:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    save_debug_videos(
+                        collected_steps,
+                        skill_name,
+                        "original_success",
+                        f"{demo_key}_dist{middle_dist*100:.1f}cm",
+                        debug_video_dir,
+                        is_failure=False
+                    )
+
+                # Phase 2: Apply pose shifting augmentation (multiple iterations)
+                # For place skills, use the actual completion step as trigger and calculate proper start_idx
+                if not args.disable_augmentation:
+                    num_iterations = args.debug_num_iterations if args.debug else args.num_augmentation_iterations
+                    for iteration in range(num_iterations):
+                        print(f"\n🔄 Augmentation iteration {iteration + 1}/{num_iterations} for {demo_key}")
+                        # For place skills: trigger = completion step, start_idx = completion - place_offset
+                        place_trigger_timestep = actual_completion_step if actual_completion_step is not None else len(actions) - 1
+                        augmented_demos, augmentation_metadata = apply_pose_shifting_augmentation(
+                            demo, f"{demo_key}_iter{iteration}", skill_name, current_skill_initial_states,
+                            env, args, place_trigger_timestep, skill_type="place"
+                        )
+
+                        all_augmented_demos.extend(augmented_demos)
+                        all_augmentation_metadata.extend(augmentation_metadata)
+                else:
+                    print(f"⏭️  Skipping augmentation (disabled)")
+            else:
+                print(f"❌ Original demo FAILURE: {demo_key} - replay unsuccessful or no steps collected")
+                # Save failure video in debug modes with whatever steps were collected
+                if args.debug or args.debug_skill:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    save_debug_videos(collected_steps, skill_name, "original", demo_key, debug_video_dir, is_failure=True)
+
+        env.close()
+
+        # Save results if we have successful demos (same logic as atomic skills)
+        success_messages = []
+
+        # Save original demos if we have them
+        if original_successful_demos:
+            # Save original demos to separate HDF5 file
+            original_demos_data = []
+            for demo_steps in original_successful_demos:
+                demo_data_formatted = convert_steps_to_demo(demo_steps)
+                original_demos_data.append(demo_data_formatted)
+
+            original_output_filename = f"{skill_name}_original_demo.hdf5"
+            original_output_path = os.path.join(args.output_dir, original_output_filename)
+            save_multiple_demos_to_hdf5(original_demos_data, original_output_path)
+            print(f"💾 Saved original HDF5 demo: {original_output_path}")
+
+            # Save initial states as {skill}.init (from original demos, middle family state at 10cm)
+            init_filename = f"{skill_name}.init"
+            init_path = os.path.join(args.output_dir, init_filename)
+            extract_and_save_initial_states_original(original_successful_demos, init_path, original_demo_middle_offsets)
+            print(f"💾 Saved initial states: {init_path} (from original demos, middle family state at 10cm)")
+
+            success_messages.append(f"original demos: {len(original_successful_demos)}")
+
+        # Save augmented demos if we have them
+        if all_augmented_demos:
+            # Save augmented demos to separate HDF5 file
+            augmented_demos_data = []
+            for demo_steps in all_augmented_demos:
+                demo_data_formatted = convert_steps_to_demo(demo_steps)
+                augmented_demos_data.append(demo_data_formatted)
+
+            augmented_output_filename = f"{skill_name}_augmented_demo.hdf5"
+            augmented_output_path = os.path.join(args.output_dir, augmented_output_filename)
+            save_multiple_demos_to_hdf5(augmented_demos_data, augmented_output_path)
+            print(f"💾 Saved augmented HDF5 demo: {augmented_output_path}")
+
+            success_messages.append(f"augmented demos: {len(all_augmented_demos)}")
+
+        if original_successful_demos or all_augmented_demos:
+            # Calculate success rates
+            original_success_rate = len(original_successful_demos) / len(demo_keys) if demo_keys else 0
+            total_possible_augmented = len(demo_keys) * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
+            augmented_success_rate = len(all_augmented_demos) / total_possible_augmented if total_possible_augmented > 0 else 0
+
+            print(f"📊 Success rates for {skill_name}:")
+            print(f"   Original demos: {original_success_rate:.2f} ({len(original_successful_demos)}/{len(demo_keys)})")
+            print(f"   Augmented demos: {augmented_success_rate:.2f} ({len(all_augmented_demos)}/{total_possible_augmented})")
+
+            # Store success rate in global dict for later JSON export
+            if not hasattr(process_atomic_skill_with_augmentation, 'skill_statistics'):
+                process_atomic_skill_with_augmentation.skill_statistics = {}
+
+            process_atomic_skill_with_augmentation.skill_statistics[skill_name] = {
+                'original_demos': len(original_successful_demos),
+                'augmented_demos': len(all_augmented_demos),
+                'total_demos': len(original_successful_demos) + len(all_augmented_demos),
+                'original_input_demos': len(demo_keys),
+                'total_possible_augmented': total_possible_augmented,
+                'original_success_rate': original_success_rate,
+                'augmented_success_rate': augmented_success_rate,
+                'augmentation_metadata': all_augmentation_metadata
+            }
+
+            return True, f"Successfully processed {', '.join(success_messages)}"
+        else:
+            return False, "No successful demonstrations found"
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Error processing {skill_name}: {error_details}")
+        return False, f"Error processing {skill_name}: {str(e)}"
+
+
+def process_atomic_skill_with_augmentation(mapping: Dict, args) -> Tuple[bool, str]:
+    """
+    Process a single atomic skill with Phase 2 pose shifting augmentation.
+    Returns (success, message) tuple.
+    """
+    skill_name = mapping['skill_name']
+    atomic_bddl_path = mapping['atomic_bddl_path']
+    demo_file_path = mapping['demo_full_path']
+    
+    print(f"\n🎯 Phase 2: Processing Atomic Skill with Augmentation: {skill_name}")
+    print(f"=" * 80)
+    
+    try:
+        # Load demonstration data
+        print("📁 Loading demonstration data...")
+        demo_data = load_hdf5_demo_data(demo_file_path)
+        
+        if 'data' not in demo_data:
+            return False, "No 'data' group found in HDF5 file"
+        
+        demo_keys = list(demo_data['data'].keys())
+        if args.debug_skill:
+            demo_keys = demo_keys[:5]  # debug_skill mode: 5 demos
+        elif args.debug:
+            demo_keys = demo_keys[:2]  # debug mode: 2 demos
+        
+        print(f"📊 Found {len(demo_keys)} demonstrations")
+        
+        # Load current skill initial states for distribution analysis
+        print(f"📁 Loading initial states for skill: {skill_name}")
+        try:
+            current_skill_initial_states = load_initial_states_for_skill(skill_name, args.atomic_demos_path)
+        except Exception as e:
+            print(f"❌ Failed to load initial states: {e}")
+            return False, f"Failed to load initial states: {e}"
+        
+        # Initialize environment
+        print("🌍 Initializing libero environment...")
+        bm_name = "atomic_skills"
+        task_suite = benchmark.get_benchmark_dict()[bm_name]()
+        
+        # Find task by extracting task name from atomic BDDL path
+        atomic_task_name = os.path.basename(mapping['atomic_bddl_path']).replace('.bddl', '')
+        task = None
+        for t in task_suite.tasks:
+            if t.name == atomic_task_name:
+                task = t
+                break
+        
+        if task is None:
+            return False, f"Task not found: {atomic_task_name}"
+        
+        # Use large horizon to accommodate motion planning for pose shifts
+        env, _ = get_libero_env(task, model_family="openvla", resolution=256, horizon=2000)
+
+        # Process each demonstration
+        original_successful_demos = []
+        original_demo_middle_offsets = []  # Track middle family offset for each original demo
+        all_augmented_demos = []
+        all_augmentation_metadata = []
+
+        for demo_idx, demo_key in enumerate(tqdm(demo_keys, desc=f"Processing {skill_name} demos")):
+            demo = demo_data['data'][demo_key]
+            actions = demo['actions']
+            states = demo['states']
+
+            print(f"\n📋 Processing {demo_key} ({demo_idx + 1}/{len(demo_keys)})")
+            print(f"   Demo length: {len(actions)} steps")
+
+            # Detect trigger timestep for atomic skills (contact detection only)
+            trigger_timestep = detect_trigger_timestep_contact_only(actions, env, states)
+            if trigger_timestep is None:
+                print(f"❌ FAILURE: No contact trigger found for {demo_key}")
+                continue
+
+            print(f"✅ Contact trigger found at timestep {trigger_timestep}")
+
+            # Find family states by distance (8cm, 10cm, 12cm)
+            print(f"🔍 Finding family states by distance...")
+            family_states = find_family_states_by_distance(
+                {'actions': actions, 'states': states},
+                trigger_timestep,
+                env,
+                distances=args.family_distances
+            )
+
+            if not family_states:
+                print(f"❌ FAILURE: No family states found for {demo_key}")
+                continue
+
+            print(f"✅ Found {len(family_states)} family states:")
+            for idx, (timestep, pos, quat, dist) in enumerate(family_states):
+                print(f"   Family {idx}: timestep={timestep}, distance={dist*100:.1f}cm")
+
+            # Use the FARTHEST family state (last one, 12cm) as starting point for original demo
+            farthest_family_timestep, farthest_pos, farthest_quat, farthest_dist = family_states[-1]
+            print(f"📍 Starting original demo from farthest family state: timestep={farthest_family_timestep}, distance={farthest_dist*100:.1f}cm")
+
+            # Single replay for original demo starting from farthest family state
+            env.reset()
+            full_trajectory = []
+            actual_completion_step = None
+            replay_success = False
+
+            # Replay entire trajectory and collect all data
+            for t in range(len(actions)):
+                action = actions[t]
+                obs, reward, done, _ = env.step(action)
+
+                # Collect step data for entire trajectory
+                step_data = collect_step_data(action, obs, reward, done, env)
+                full_trajectory.append(step_data)
+
+                if done:
+                    replay_success = True
+                    actual_completion_step = t
+                    break
+
+            # Slice trajectory starting from farthest family state
+            if replay_success and actual_completion_step is not None:
+                start_idx = farthest_family_timestep
+                if start_idx <= actual_completion_step:
+                    # Normal case: family state is before completion
+                    pass
+                else:
+                    # Fallback: shouldn't happen, but handle it
+                    min_steps_needed = args.min_steps_fallback
+                    start_idx = max(0, actual_completion_step - min_steps_needed + 1)
+
+                # Slice the trajectory
+                end_idx = actual_completion_step + 1  # Include completion step
+                collected_steps = full_trajectory[start_idx:end_idx]
+
+                if len(collected_steps) > 0:
+                    print(f"✅ Original demo SUCCESS: {demo_key} - collected {len(collected_steps)} steps")
+
+                    # Calculate middle family offset for initial state
+                    middle_family_timestep, middle_pos, middle_quat, middle_dist = family_states[1]  # Index 1 = middle (10cm)
+                    middle_offset = middle_family_timestep - start_idx
+
+                    original_successful_demos.append(collected_steps)
+                    original_demo_middle_offsets.append(middle_offset)
+
+                    # Save initial images in debug mode (atomic skill)
+                    # Use MIDDLE family state (10cm) for initial state image
+                    if args.debug or args.debug_skill:
+                        save_initial_images_debug(
+                            collected_steps,
+                            skill_name,
+                            "original",
+                            demo_key,
+                            offset=middle_offset,
+                            output_dir=args.output_dir,
+                            distance_cm=middle_dist * 100
+                        )
+
+                    # Save success video for original demo in debug_skill/debug mode
+                    if args.debug_skill or args.debug:
+                        debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                        save_debug_videos(
+                            collected_steps,
+                            skill_name,
+                            "original_success",
+                            f"{demo_key}_dist{middle_dist*100:.1f}cm",
+                            debug_video_dir,
+                            is_failure=False
+                        )
+
+                    # Phase 2: Apply pose shifting augmentation (multiple iterations)
+                    if not args.disable_augmentation:
+                        num_iterations = 2 if args.debug_skill else (1 if args.debug else args.num_augmentation_iterations)
+                        for iteration in range(num_iterations):
+                            print(f"\n🔄 Augmentation iteration {iteration + 1}/{num_iterations} for {demo_key}")
+                            augmented_demos, augmentation_metadata = apply_pose_shifting_augmentation(
+                                demo, f"{demo_key}_iter{iteration}", skill_name, current_skill_initial_states,
+                                env, args, trigger_timestep, skill_type="atomic"
+                            )
+
+                            all_augmented_demos.extend(augmented_demos)
+                            all_augmentation_metadata.extend(augmentation_metadata)
+                    else:
+                        print(f"⏭️  Skipping augmentation (disabled)")
+                else:
+                    print(f"❌ Original demo FAILURE: {demo_key} - no steps collected")
+                    # Save failure video in debug modes with whatever steps were collected
+                    if args.debug or args.debug_skill:
+                        debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                        save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir, is_failure=True)
+            else:
+                print(f"❌ Original demo FAILURE: {demo_key} - replay unsuccessful")
+                # Save failure video in debug modes with whatever steps were collected
+                if args.debug or args.debug_skill:
+                    debug_video_dir = os.path.join(args.output_dir, "debug_videos")
+                    save_debug_videos(full_trajectory, skill_name, "original", demo_key, debug_video_dir)
+        
+        env.close()
+
+        # Save results if we have successful demos
+        success_messages = []
+
+        # Save original demos if we have them
+        if original_successful_demos:
+            # Save original demos to separate HDF5 file
+            original_demos_data = []
+            for demo_steps in original_successful_demos:
+                demo_data_formatted = convert_steps_to_demo(demo_steps)
+                original_demos_data.append(demo_data_formatted)
+
+            original_output_filename = f"{skill_name}_original_demo.hdf5"
+            original_output_path = os.path.join(args.output_dir, original_output_filename)
+            save_multiple_demos_to_hdf5(original_demos_data, original_output_path)
+            print(f"💾 Saved original HDF5 demo: {original_output_path}")
+
+            # Save initial states as {skill}.init (from original demos, middle family state at 10cm)
+            init_filename = f"{skill_name}.init"
+            init_path = os.path.join(args.output_dir, init_filename)
+            extract_and_save_initial_states_original(original_successful_demos, init_path, original_demo_middle_offsets)
+            print(f"💾 Saved initial states: {init_path} (from original demos, middle family state at 10cm)")
+
+            success_messages.append(f"original demos: {len(original_successful_demos)}")
+
+        # Save augmented demos if we have them
+        if all_augmented_demos:
+            # Save augmented demos to separate HDF5 file
+            augmented_demos_data = []
+            for demo_steps in all_augmented_demos:
+                demo_data_formatted = convert_steps_to_demo(demo_steps)
+                augmented_demos_data.append(demo_data_formatted)
+
+            augmented_output_filename = f"{skill_name}_augmented_demo.hdf5"
+            augmented_output_path = os.path.join(args.output_dir, augmented_output_filename)
+            save_multiple_demos_to_hdf5(augmented_demos_data, augmented_output_path)
+            print(f"💾 Saved augmented HDF5 demo: {augmented_output_path}")
+
+            success_messages.append(f"augmented demos: {len(all_augmented_demos)}")
+
+        if original_successful_demos or all_augmented_demos:
+            # Calculate success rates
+            original_success_rate = len(original_successful_demos) / len(demo_keys) if demo_keys else 0
+            total_possible_augmented = len(demo_keys) * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
+            augmented_success_rate = len(all_augmented_demos) / total_possible_augmented if total_possible_augmented > 0 else 0
+
+            print(f"📊 Success rates for {skill_name}:")
+            print(f"   Original demos: {original_success_rate:.2f} ({len(original_successful_demos)}/{len(demo_keys)})")
+            print(f"   Augmented demos: {augmented_success_rate:.2f} ({len(all_augmented_demos)}/{total_possible_augmented})")
+
+            # Store success rate in global dict for later JSON export
+            if not hasattr(process_atomic_skill_with_augmentation, 'skill_statistics'):
+                process_atomic_skill_with_augmentation.skill_statistics = {}
+
+            process_atomic_skill_with_augmentation.skill_statistics[skill_name] = {
+                'original_demos': len(original_successful_demos),
+                'augmented_demos': len(all_augmented_demos),
+                'total_demos': len(original_successful_demos) + len(all_augmented_demos),
+                'original_input_demos': len(demo_keys),
+                'total_possible_augmented': total_possible_augmented,
+                'original_success_rate': original_success_rate,
+                'augmented_success_rate': augmented_success_rate,
+                'augmentation_metadata': all_augmentation_metadata
+            }
+
+            return True, f"Successfully processed {', '.join(success_messages)}"
+        else:
+            return False, "No successful demonstrations found"
+            
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return False, f"Error processing {skill_name}: {str(e)}\n{error_details}"
+
+
+def save_augmentation_metadata(output_dir: str):
+    """Save comprehensive augmentation metadata to JSON file."""
+    if not hasattr(process_atomic_skill_with_augmentation, 'skill_statistics'):
+        print("⚠️  No skill statistics to save")
+        return
+    
+    skill_stats = process_atomic_skill_with_augmentation.skill_statistics
+    
+    # Create comprehensive metadata
+    metadata = {
+        'generation_timestamp': datetime.now().isoformat(),
+        'total_skills_processed': len(skill_stats),
+        'overall_statistics': {
+            'total_original_demos': sum(stats['original_demos'] for stats in skill_stats.values()),
+            'total_augmented_demos': sum(stats['augmented_demos'] for stats in skill_stats.values()),
+            'total_demos': sum(stats['total_demos'] for stats in skill_stats.values()),
+            'total_input_demos': sum(stats['original_input_demos'] for stats in skill_stats.values()),
+        },
+        'per_skill_statistics': skill_stats
+    }
+    
+    # Calculate overall rates
+    if metadata['overall_statistics']['total_input_demos'] > 0:
+        metadata['overall_statistics']['overall_original_success_rate'] = (
+            metadata['overall_statistics']['total_original_demos'] / 
+            metadata['overall_statistics']['total_input_demos']
+        )
+        metadata['overall_statistics']['overall_augmentation_ratio'] = (
+            metadata['overall_statistics']['total_augmented_demos'] / 
+            metadata['overall_statistics']['total_input_demos']
+        )
+        metadata['overall_statistics']['overall_demo_multiplication_factor'] = (
+            metadata['overall_statistics']['total_demos'] / 
+            metadata['overall_statistics']['total_input_demos']
+        )
+    
+    # Save metadata
+    metadata_path = os.path.join(output_dir, "augmentation_metadata.json")
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    print(f"💾 Saved augmentation metadata: {metadata_path}")
+    
+    # Print summary
+    print(f"\n📊 Phase 2 Augmentation Summary:")
+    print(f"   Skills processed: {metadata['total_skills_processed']}")
+    print(f"   Input demos: {metadata['overall_statistics']['total_input_demos']}")
+    print(f"   Original demos generated: {metadata['overall_statistics']['total_original_demos']}")
+    print(f"   Augmented demos generated: {metadata['overall_statistics']['total_augmented_demos']}")
+    print(f"   Total demos: {metadata['overall_statistics']['total_demos']}")
+    if 'overall_demo_multiplication_factor' in metadata['overall_statistics']:
+        print(f"   Demo multiplication factor: {metadata['overall_statistics']['overall_demo_multiplication_factor']:.2f}x")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate augmented demos with Phase 2 pose shifting",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run in debug mode (processes one file per category + 2 demos each)
+  python 1_generate_augmented_demos.py --debug
+
+  # Full run with augmentation
+  python 1_generate_augmented_demos.py --output_dir /path/to/output
+
+  # Disable augmentation (Phase 1 behavior)
+  python 1_generate_augmented_demos.py --disable_augmentation
+        """
+    )
+
+    # ============================================================================
+    # CORE CONFIGURATION
+    # ============================================================================
+
+    # Logging control
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging (shows detailed progress)"
+    )
+
+    # ============================================================================
+    # INPUT/OUTPUT PATHS
+    # ============================================================================
+    parser.add_argument(
+        "--atomic_skills_dir", 
+        type=str,
+        default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills",
+        help="Directory containing atomic skill BDDL files"
+    )
+    parser.add_argument(
+        "--cat_split_map_file",
+        type=str,
+        default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills/cat_split_map.json",
+        help="Path to cat_split_map.json mapping file"
+    )
+    parser.add_argument(
+        "--raw_demo_dir",
+        type=str,
+        default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/libero_90_no_noops/",
+        help="Directory containing original demonstration HDF5 files"
+    )
+    parser.add_argument(
+        "--atomic_demos_path",
+        type=str,
+        default="/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_local_demos/full_atomic_skills",
+        help="Path to atomic demos for initial states"
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="datasets/hdf5_datasets/atomic_local_demos_augmented_reaching",
+        help="Output directory for generated augmented HDF5 files"
+    )
+
+    # ============================================================================
+    # PROCESSING PARAMETERS
+    # ============================================================================
+    parser.add_argument(
+        "--pick_offset",
+        type=int,
+        default=25,
+        help="Steps before trigger for pick skill data collection"
+    )
+    parser.add_argument(
+        "--place_offset",
+        type=int,
+        default=25,
+        help="Steps from end for place skill data collection"
+    )
+    parser.add_argument(
+        "--atomic_offset",
+        type=int,
+        default=25,
+        help="Steps before trigger for atomic skill data collection"
+    )
+    parser.add_argument(
+        "--min_steps_fallback",
+        type=int,
+        default=3,
+        help="Minimum steps to collect as fallback when collection window is too late"
+    )
+
+    # ============================================================================
+    # PHASE 2 POSE SHIFTING PARAMETERS (NEW: Distance-based + Far-away-back)
+    # ============================================================================
+    parser.add_argument(
+        "--family_distances",
+        type=float,
+        nargs='+',
+        default=[0.08, 0.10, 0.12],
+        help="Cartesian distances (in meters) from contact point for family states (default: 8cm, 10cm, 12cm)"
+    )
+    parser.add_argument(
+        "--far_shift_distance",
+        type=float,
+        default=0.10,
+        help="Distance for far-away pose in meters (default: 10cm)"
+    )
+    parser.add_argument(
+        "--far_shift_orientation",
+        type=float,
+        default=60,
+        help="Orientation shift for far-away pose in degrees (default: 60°)"
+    )
+
+    # DEPRECATED: Old Gaussian noise parameters (kept for backward compatibility)
+    parser.add_argument(
+        "--position_shift_range",
+        type=float,
+        default=0.05,  # Was DEFAULT_POSITION_SHIFT_RANGE
+        help="[DEPRECATED] Position shift range (±meters) - replaced by --far_shift_distance"
+    )
+    parser.add_argument(
+        "--orientation_shift_range_deg",
+        type=float,
+        default=60,  # Was DEFAULT_ORIENTATION_SHIFT_RANGE_DEG
+        help="[DEPRECATED] Orientation shift range (±degrees) - replaced by --far_shift_orientation"
+    )
+
+    # ============================================================================
+    # MOTION PLANNER PARAMETERS
+    # ============================================================================
+    parser.add_argument(
+        "--motion_planner_steps",
+        type=int,
+        default=DEFAULT_MOTION_PLANNER_STEPS,
+        help="Number of steps for motion planner"
+    )
+    parser.add_argument(
+        "--motion_planner_pos_gain",
+        type=float,
+        default=DEFAULT_MOTION_PLANNER_POS_GAIN,
+        help="Position gain for motion planner"
+    )
+    parser.add_argument(
+        "--motion_planner_ori_gain",
+        type=float,
+        default=DEFAULT_MOTION_PLANNER_ORI_GAIN,
+        help="Orientation gain for motion planner"
+    )
+
+    # Motion planner thresholds - different for each phase
+    parser.add_argument(
+        "--far_position_threshold",
+        type=float,
+        default=DEFAULT_FAR_POSITION_THRESHOLD,
+        help="Position threshold for moving to far-away pose (meters, default: 2cm - loose)"
+    )
+    parser.add_argument(
+        "--far_orientation_threshold_deg",
+        type=float,
+        default=DEFAULT_FAR_ORIENTATION_THRESHOLD_DEG,
+        help="Orientation threshold for moving to far-away pose (degrees, default: 15° - loose)"
+    )
+    parser.add_argument(
+        "--return_position_threshold",
+        type=float,
+        default=DEFAULT_RETURN_POSITION_THRESHOLD,
+        help="Position threshold for returning from far-away (meters, default: 1cm - medium)"
+    )
+    parser.add_argument(
+        "--return_orientation_threshold_deg",
+        type=float,
+        default=DEFAULT_RETURN_ORIENTATION_THRESHOLD_DEG,
+        help="Orientation threshold for returning from far-away (degrees, default: 10° - medium)"
+    )
+    parser.add_argument(
+        "--position_threshold",
+        type=float,
+        default=DEFAULT_POSITION_THRESHOLD,
+        help="Position threshold for final correction phase (meters, default: 0.5cm - tight)"
+    )
+    parser.add_argument(
+        "--orientation_threshold_deg",
+        type=float,
+        default=DEFAULT_ORIENTATION_THRESHOLD_DEG,
+        help="Orientation threshold for final correction phase (degrees, default: 5° - tight)"
+    )
+    parser.add_argument(
+        "--num_augmentation_iterations",
+        type=int,
+        default=5,
+        help="Number of augmentation iterations per demo (default: 5)"
+    )
+    parser.add_argument(
+        "--disable_augmentation",
+        action="store_true",
+        help="Disable pose shifting augmentation (Phase 1 behavior)"
+    )
+
+    # ============================================================================
+    # DEBUG AND TESTING MODES
+    # ============================================================================
+    # Debug mode - processes 3 representative skills (pick/place/atomic)
+    parser.add_argument(
+        "--debug", "--debug_mode",
+        action="store_true",
+        help="Debug mode: process 3 skills (1 pick, 1 place, 1 atomic) for testing"
+    )
+
+    # Debug skill mode - processes single specified skill
+    parser.add_argument(
+        "--debug_skill", "--debug_skill_mode",
+        action="store_true",
+        help="Debug single skill: process one specific skill for detailed analysis"
+    )
+    parser.add_argument(
+        "--debug_skill_name",
+        type=str,
+        default="KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet",
+        help="Skill name to debug in debug_skill mode"
+    )
+
+    # Debug mode parameters (apply to both --debug and --debug_skill modes)
+    parser.add_argument(
+        "--debug_num_demos",
+        type=int,
+        default=2,
+        help="Number of demos per skill to process in debug mode (default: 2), debug_skill mode uses 5"
+    )
+    parser.add_argument(
+        "--debug_num_iterations",
+        type=int,
+        default=1,
+        help="Number of augmentation iterations per demo in debug mode (default: 1), debug_skill mode uses 2"
+    )
+
+    # ============================================================================
+    # CHECKPOINT AND RESUME
+    # ============================================================================
+    parser.add_argument(
+        "--checkpoint_file",
+        type=str,
+        default="./datasets/hdf5_datasets/atomic_local_demos_augmented_reaching/checkpoint_phase2_normal.pkl",
+        help="Path to checkpoint file for save/resume functionality"
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint if available"
+    )
+    parser.add_argument(
+        "--random_seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducible pose shifting (default: 42)"
+    )
+
+    args = parser.parse_args()
+
+    # Set global logging flags
+    global VERBOSE, DEBUG_MODE, DEBUG_SKILL_MODE
+    VERBOSE = args.verbose
+    DEBUG_MODE = args.debug
+    DEBUG_SKILL_MODE = args.debug_skill
+
+    # Set random seeds for reproducible pose shifting
+    random.seed(args.random_seed)
+    np.random.seed(args.random_seed)
+
+    # Set PyTorch seed if available
+    try:
+        import torch
+        torch.manual_seed(args.random_seed)
+        log_info(f"🌱 Random seed set to: {args.random_seed} (Python, NumPy, PyTorch)")
+    except ImportError:
+        log_info(f"🌱 Random seed set to: {args.random_seed} (Python, NumPy)")
+
+    # Modify output directory to include offset parameters (unless in debug/debug_skill modes)
+    if not args.debug and not args.debug_skill:
+        # Create directory name with offset parameters
+        base_dir = args.output_dir.rstrip('/')
+        offset_suffix = f"_pick_{args.pick_offset}_place_{args.place_offset}_atomic_{args.atomic_offset}"
+        args.output_dir = base_dir + offset_suffix
+        log_verbose(f"Output directory modified to include offsets: {args.output_dir}")
+
+    # Set debug output directory if debug mode is enabled
+    if args.debug:
+        args.output_dir = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_local_demos_augmented_reaching/debug_mode"
+        log_debug(f"Debug mode enabled: Output will be saved to {args.output_dir}")
+
+    # Set debug skill mode output directory and parameters
+    if args.debug_skill:
+        args.output_dir = f"/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_local_demos_augmented_reaching/debug_skill_mode"
+        log_debug(f"Debug skill mode enabled: Processing skill '{args.debug_skill_name}'")
+        log_verbose(f"   Output will be saved to {args.output_dir}")
+        log_verbose(f"   Will process {args.debug_num_demos} demos with {args.debug_num_iterations} iterations each")
+    
+    # Validate input paths
+    if not os.path.exists(args.atomic_skills_dir):
+        raise FileNotFoundError(f"Atomic skills directory not found: {args.atomic_skills_dir}")
+    
+    if not os.path.exists(args.cat_split_map_file):
+        raise FileNotFoundError(f"cat_split_map.json not found: {args.cat_split_map_file}")
+    
+    if not os.path.exists(args.raw_demo_dir):
+        raise FileNotFoundError(f"Raw demo directory not found: {args.raw_demo_dir}")
+    
+    if not os.path.exists(args.atomic_demos_path):
+        raise FileNotFoundError(f"Atomic demos path not found: {args.atomic_demos_path}")
+    
+    # Create output directory
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    log_info("🎯 Phase 2: Atomic Skills Augmented Demo Generation")
+    log_info("=" * 60)
+    log_verbose(f"Atomic skills dir: {args.atomic_skills_dir}")
+    log_verbose(f"Cat split map: {args.cat_split_map_file}")
+    log_verbose(f"Raw demo dir: {args.raw_demo_dir}")
+    log_verbose(f"Atomic demos path: {args.atomic_demos_path}")
+    log_info(f"Output dir: {args.output_dir}")
+    log_info(f"Augmentation enabled: {not args.disable_augmentation}")
+    if not args.disable_augmentation:
+        log_info(f"Position shift: ±{args.position_shift_range:.3f}m, Orientation shift: ±{args.orientation_shift_range_deg:.1f}°")
+        log_verbose(f"Motion planner: {args.motion_planner_steps} steps, gains pos={args.motion_planner_pos_gain}/ori={args.motion_planner_ori_gain}")
+        log_verbose(f"Motion planner thresholds: pos={args.position_threshold:.3f}m, ori={args.orientation_threshold_deg:.1f}°")
+        iterations_per_demo = args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations
+        log_info(f"Augmentation iterations per demo: {iterations_per_demo}")
+        if args.debug_skill:
+            log_debug(f"Debug skill mode: {args.debug_skill_name}, {args.debug_num_demos} demos, {args.debug_num_iterations} iterations each")
+        elif args.debug:
+            log_debug(f"Debug mode: 3 skills (place/atomic/pick order), {args.debug_num_demos} demos, {args.debug_num_iterations} iterations each")
+    log_info("")
+    
+    # Load the category split mapping
+    log_verbose("📁 Loading cat_split_map.json...")
+    with open(args.cat_split_map_file, 'r') as f:
+        cat_split_map = json.load(f)
+    log_verbose(f"Loaded {len(cat_split_map)} mappings")
+
+    # Discover atomic skill files
+    log_verbose("\n🔍 Discovering atomic skill BDDL files...")
+    atomic_skills = discover_atomic_skills(args.atomic_skills_dir, debug=args.debug)
+
+    # Print summary of discovered files
+    pick_count = sum(1 for _, category in atomic_skills if category == 'pick')
+    place_count = sum(1 for _, category in atomic_skills if category == 'place')
+    atomic_count = sum(1 for _, category in atomic_skills if category == 'atomic')
+
+    log_info(f"Found {len(atomic_skills)} atomic skill files: {pick_count} pick, {place_count} place, {atomic_count} atomic")
+    log_verbose(f"  - Pick skills: {pick_count}")
+    log_verbose(f"  - Place skills: {place_count}")
+    log_verbose(f"  - Atomic skills: {atomic_count}")
+
+    # Map to source demonstration files
+    log_verbose("\n🗺️  Mapping atomic skills to source demo files...")
+    mappings = map_to_source_demos(atomic_skills, cat_split_map, args.raw_demo_dir)
+
+    log_info(f"Successfully mapped {len(mappings)} atomic skills to demo files")
+    
+    # Helper function to sort skills in desired order: place -> atomic -> pick
+    def sort_skills_by_category(mappings_list):
+        """Sort skills to process in order: place, atomic, pick"""
+        category_order = {'place': 0, 'atomic': 1, 'pick': 2}
+        return sorted(mappings_list, key=lambda x: category_order.get(x['category'], 3))
+
+    # In debug mode, process all categories; in debug skill mode, process one specific skill; in normal mode, focus on atomic skills for Phase 2
+    if args.debug_skill:
+        # Find the specific skill to debug
+        debug_skill_mapping = None
+        for mapping in mappings:
+            if mapping['skill_name'] == args.debug_skill_name:
+                debug_skill_mapping = mapping
+                break
+        
+        if debug_skill_mapping is None:
+            available_skills = [m['skill_name'] for m in mappings]
+            raise ValueError(f"Debug skill '{args.debug_skill_name}' not found. Available skills: {available_skills}")
+        
+        skills_to_process = [debug_skill_mapping]
+        print(f"\n🎯 Debug Skill Mode: Processing skill '{args.debug_skill_name}' ({debug_skill_mapping['category']}) with augmentation")
+        print(f"   Will process 5 demos with 2 iterations each")
+    elif args.debug:
+        skills_to_process = sort_skills_by_category(mappings)  # Process all categories in order: place -> atomic -> pick
+        print(f"\n🎯 Debug Mode: Processing {len(skills_to_process)} skills (all categories) with augmentation")
+        print(f"   Skills selected for debug:")
+        for mapping in skills_to_process:
+            print(f"   - {mapping['skill_name']} ({mapping['category']})")
+    else:
+        skills_to_process = mappings  # Process ALL skills (atomic, pick, place)
+        print(f"\n🎯 Phase 2: Processing {len(skills_to_process)} skills (all categories) with augmentation")
+
+    total_successful = 0
+    total_failed = 0
+
+    # Initialize timing tracking for debug mode
+    skill_timing_data = {}
+    debug_timing_enabled = args.debug or args.debug_skill
+
+    # Initialize checkpoint variables
+    processed_skills = []
+    start_time = time.time()
+    start_skill_idx = 0
+
+    # Load checkpoint if resuming
+    if args.resume:
+        print(f"\n🔄 Checking for checkpoint file: {args.checkpoint_file}")
+        checkpoint_data = load_checkpoint(args.checkpoint_file)
+        if checkpoint_data:
+            processed_skills = checkpoint_data['processed_skills']
+            start_time = checkpoint_data['start_time']
+            skill_timing_data = checkpoint_data['skill_timing_data']
+            start_skill_idx = checkpoint_data['current_skill_idx']
+
+            # Update counters from completed skills
+            for skill_name in processed_skills:
+                timing_info = skill_timing_data.get(skill_name)
+                if timing_info and timing_info['success']:
+                    total_successful += 1
+                else:
+                    total_failed += 1
+
+            print(f"📂 Resuming from skill #{start_skill_idx + 1}")
+
+            # Skip already processed skills
+            skills_to_process = skills_to_process[start_skill_idx:]
+        else:
+            print(f"📂 No checkpoint found, starting fresh")
+    else:
+        print(f"📂 Checkpoint disabled, starting fresh")
+
+    for skill_idx, mapping in enumerate(tqdm(skills_to_process, desc="Processing skills")):
+        category = mapping['category']
+        skill_name = mapping['skill_name']
+
+        # Start timing for debug mode
+        if debug_timing_enabled:
+            skill_start_time = time.time()
+
+        if category == 'pick':
+            success, message = process_pick_skill_with_augmentation(mapping, args)
+        elif category == 'place':
+            success, message = process_place_skill_with_augmentation(mapping, args)
+        elif category == 'atomic':
+            success, message = process_atomic_skill_with_augmentation(mapping, args)
+        else:
+            success, message = False, f"Unknown skill category: {category}"
+
+        # Record timing for debug mode
+        if debug_timing_enabled:
+            skill_end_time = time.time()
+            skill_duration = skill_end_time - skill_start_time
+            skill_timing_data[skill_name] = {
+                'category': category,
+                'duration_seconds': skill_duration,
+                'success': success
+            }
+
+        if success:
+            total_successful += 1
+            print(f"✅ {mapping['skill_name']}: {message}")
+        else:
+            total_failed += 1
+            print(f"❌ {mapping['skill_name']}: {message}")
+
+        # Update checkpoint after each skill
+        processed_skills.append(skill_name)
+        current_skill_idx = start_skill_idx + skill_idx + 1
+        save_checkpoint(
+            args.checkpoint_file,
+            processed_skills,
+            current_skill_idx,
+            len(mappings),  # Total original skills
+            start_time,
+            skill_timing_data
+        )
+    
+    # Save augmentation metadata
+    save_augmentation_metadata(args.output_dir)
+
+    # Clean up checkpoint file on successful completion
+    if os.path.exists(args.checkpoint_file):
+        try:
+            os.remove(args.checkpoint_file)
+            print(f"🗑️  Checkpoint file removed (processing completed)")
+        except Exception as e:
+            print(f"⚠️  Could not remove checkpoint file: {e}")
+
+    print(f"\n🎯 Phase 2 Complete")
+    print(f"=" * 60)
+    print(f"Successfully processed: {total_successful}")
+    print(f"Failed: {total_failed}")
+    print(f"Total skills: {len(skills_to_process)}")
+
+    # Print timing summary for debug mode
+    if debug_timing_enabled and skill_timing_data:
+        print(f"\n⏱️  Skill Processing Times (Debug Mode)")
+        print(f"=" * 60)
+
+        total_time = 0
+        for skill_name, timing_info in skill_timing_data.items():
+            duration = timing_info['duration_seconds']
+            total_time += duration
+
+            # Convert to minutes and seconds
+            minutes = int(duration // 60)
+            seconds = int(duration % 60)
+
+            status_icon = "✅" if timing_info['success'] else "❌"
+            category = timing_info['category']
+
+            print(f"{status_icon} {skill_name} ({category}): {minutes}m {seconds}s")
+
+        # Print total time
+        total_minutes = int(total_time // 60)
+        total_seconds = int(total_time % 60)
+        print(f"\n🕒 Total Processing Time: {total_minutes}m {total_seconds}s")
+        print(f"   Average per skill: {total_time/len(skill_timing_data):.1f}s")
+
+    # Enhanced augmentation success rate logging
+    if hasattr(process_atomic_skill_with_augmentation, 'skill_statistics'):
+        skill_stats = process_atomic_skill_with_augmentation.skill_statistics
+
+        print(f"\n📊 Detailed Augmentation Success Analysis:")
+        print(f"=" * 60)
+
+        total_original_demos = 0
+        total_augmented_demos = 0
+        total_augmentation_attempts = 0
+        total_trigger_found_demos = 0
+
+        for skill_name, stats in skill_stats.items():
+            total_original_demos += stats['original_demos']
+            total_augmented_demos += stats['augmented_demos']
+            total_augmentation_attempts += stats['total_possible_augmented']
+
+            # Calculate trigger detection success (original demos indicate trigger was found)
+            total_trigger_found_demos += stats['original_demos']
+
+            print(f"\n{skill_name}:")
+            print(f"  Original demos: {stats['original_demos']}/{stats['original_input_demos']} ({stats['original_success_rate']:.1%})")
+            print(f"  Augmented demos: {stats['augmented_demos']}/{stats['total_possible_augmented']} ({stats['augmented_success_rate']:.1%})")
+
+            # Show augmentation success rate for demos with triggers found
+            if stats['original_demos'] > 0:
+                augmentation_attempts_with_trigger = stats['original_demos'] * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
+                augmentation_success_rate_with_trigger = stats['augmented_demos'] / augmentation_attempts_with_trigger if augmentation_attempts_with_trigger > 0 else 0
+                print(f"  Augmentation success (trigger found): {stats['augmented_demos']}/{augmentation_attempts_with_trigger} ({augmentation_success_rate_with_trigger:.1%})")
+
+        print(f"\n🔢 Overall Statistics:")
+        print(f"Original demo success rate: {total_original_demos}/{sum(stats['original_input_demos'] for stats in skill_stats.values())} ({total_original_demos/sum(stats['original_input_demos'] for stats in skill_stats.values()) if sum(stats['original_input_demos'] for stats in skill_stats.values()) > 0 else 0:.1%})")
+        print(f"Total augmentation attempts: {total_augmentation_attempts}")
+        print(f"Total augmented demos saved: {total_augmented_demos}")
+        print(f"Overall augmentation success rate: {total_augmented_demos}/{total_augmentation_attempts} ({total_augmented_demos/total_augmentation_attempts if total_augmentation_attempts > 0 else 0:.1%})")
+
+        # Calculate success rate for demos where trigger was found
+        if total_trigger_found_demos > 0:
+            augmentation_attempts_with_triggers = total_trigger_found_demos * (args.debug_num_iterations if (args.debug_skill or args.debug) else args.num_augmentation_iterations)
+            augmentation_success_rate_with_triggers = total_augmented_demos / augmentation_attempts_with_triggers
+            print(f"Augmentation success rate (trigger found): {total_augmented_demos}/{augmentation_attempts_with_triggers} ({augmentation_success_rate_with_triggers:.1%})")
+
+    if total_successful > 0:
+        print(f"\nOutput files saved to: {args.output_dir}")
+        print("- *_original_demo.hdf5: Original demonstration data")
+        print("- *_augmented_demo.hdf5: Augmented demonstration data")
+        print("- *_original.init: Initial states for original demos")
+        print("- *_augmented.init: Initial states for augmented demos")
+        print("- augmentation_metadata.json: Comprehensive statistics and metadata")
+        if args.debug or args.debug_skill:
+            print("- debug_videos/: Debug videos (agentview and wrist cam) for all demos")
+            print("- initial_images/: Initial state images (agentview and wrist cam) for investigating offset parameters")
+
+
+
+
+if __name__ == '__main__':
+    main()
