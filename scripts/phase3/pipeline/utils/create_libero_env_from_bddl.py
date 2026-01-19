@@ -165,6 +165,7 @@ def create_libero_env_from_bddl(bddl_file_path, output_image_path="./libero_scen
         
         # Save the image
         print(f"💾 Saving image to: {output_image_path}")
+        os.makedirs(os.path.dirname(output_image_path), exist_ok=True)
         Image.fromarray(agent_img).save(output_image_path)
         
         print(f"✅ Successfully saved image: {output_image_path}")
@@ -192,10 +193,14 @@ def main():
     bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_cooking_preparation_setup.bddl"
     # bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_complete_kitchen_organization.bddl"
     bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_cooking_preparation_setup.bddl"
-    # bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_complete_kitchen_organization.bddl"
-    
+    bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_complete_kitchen_organization.bddl"
+    # bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_organize_table.bddl"
+    bddl_file_path = "externals/boss/libero/libero/bddl_files/long_horizon_tasks_v1/LONG_HORIZON_organize_table.bddl"
+
+    bddl_file_path = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/long_horizon_tasks_libero_long/LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket.bddl"
+
     # Output image path
-    output_image_path = "./libero_scene.png"
+    output_image_path = "./scripts/phase3/pipeline/outputs/images/test_new_env/scene_3.png"
     
     print("="*60)
     print("LIBERO ENVIRONMENT CREATION FROM BDDL")

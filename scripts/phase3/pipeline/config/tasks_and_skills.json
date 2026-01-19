@@ -69,14 +69,15 @@
       "skills": [
         "turn on the stove 2",
         "pick frying pan 1",
-        "place frying pan 1 on the stove 2",        
+        "place frying pan 1 on the stove 2",
         "turn on the stove 1",
         "pick moka pot 1",
-        "place moka pot 1 on the stove 1",        
+        "place moka pot 1 on the stove 1",
         "open the microwave 1"
       ],
       "bddl_file": "LONG_HORIZON_cooking_preparation_setup",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Cooking Preparation Setup"
     },
     {
       "task_id": 2,
@@ -92,7 +93,8 @@
         "close the top drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Complete Kitchen Organization"
     },
     {
       "task_id": 3,
@@ -106,7 +108,8 @@
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_switch_table_objects",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Switch Table Objects"
     },
     {
       "task_id": 4,
@@ -115,7 +118,8 @@
         "pick white bowl 1"
       ],
       "bddl_file": "LONG_HORIZON_pick_white_bowl",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Pick White Bowl"
     },
     {
       "task_id": 5,
@@ -124,7 +128,8 @@
         "pick black bowl 1"
       ],
       "bddl_file": "LONG_HORIZON_pick_black_bowl",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Pick Black Bowl"
     },
     {
       "task_id": 6,
@@ -135,7 +140,8 @@
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Put The Black Bowl In The Bottom Drawer Of The Cabinet And Close It"
     },
     {
       "task_id": 7,
@@ -146,7 +152,8 @@
         "place moka pot 1 on the stove 1"
       ],
       "bddl_file": "LONG_HORIZON_turn_on_the_stove_and_put_the_moka_pot_on_it",
-      "benchmark": "long_horizon_tasks_v0"
+      "benchmark": "long_horizon_tasks_v0",
+      "language": "Turn On The Stove And Put The Moka Pot On It"
     },
     {
       "task_id": 8,
@@ -158,14 +165,13 @@
         "place black bowl 2 on the plate 2",
         "pick black bowl 3",
         "stack black bowl 3 on black bowl 2",
-
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
-        
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "pick black bowl, then place black bowl on the plate, then pick black bowl, then place black bowl on the plate, then pick black bowl, then stack black bowl on black bowl, then pick cream cheese, then place cream cheese in the basket, then close the bottom drawer of the cabinet"
     },
     {
       "task_id": 9,
@@ -175,23 +181,21 @@
         "place tomato sauce 1 in the basket 3",
         "pick tomato sauce 2",
         "place tomato sauce 2 in the basket 3",
-
         "pick alphabet soup 1",
         "place alphabet soup 1 in the basket 2",
         "pick alphabet soup 2",
         "place alphabet soup 2 in the basket 2",
-        
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
         "pick cream cheese 2",
         "place cream cheese 2 in the basket 1",
-        
         "pick black bowl 1",
         "place black bowl 1 in bottom drawer of the cabinet 1",
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_organize_table",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "pick tomato sauce, then place tomato sauce in the basket, then pick tomato sauce, then place tomato sauce in the basket, then pick alphabet soup, then place alphabet soup in the basket, then pick alphabet soup, then place alphabet soup in the basket, then pick cream cheese, then place cream cheese in the basket, then pick cream cheese, then place cream cheese in the basket, then pick black bowl, then place black bowl in bottom drawer of the cabinet, then close the bottom drawer of the cabinet"
     },
     {
       "task_id": 10,
@@ -199,14 +203,15 @@
       "skills": [
         "turn on the stove 2",
         "pick frying pan 1",
-        "place frying pan 1 on the stove 2",        
+        "place frying pan 1 on the stove 2",
         "turn on the stove 1",
         "pick moka pot 1",
         "place moka pot 1 on the stove 1",
         "open the microwave 1"
       ],
       "bddl_file": "LONG_HORIZON_cooking_preparation_setup",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "turn on the stove, then pick frying pan, then place frying pan on the stove, then turn on the stove, then pick moka pot, then place moka pot on the stove, then open the microwave"
     },
     {
       "task_id": 11,
@@ -217,10 +222,9 @@
         "place moka pot 1 on the stove 1"
       ],
       "bddl_file": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
-      "benchmark": "libero_10"
+      "benchmark": "libero_10",
+      "language": "Turn On The Stove And Put The Moka Pot On It Libero10"
     },
-
-    
     {
       "task_id": 12,
       "name": "Turn On The Stove And Put The Moka Pot On It",
@@ -230,7 +234,8 @@
         "place moka pot 1 on the stove 1"
       ],
       "bddl_file": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Turn On The Stove And Put The Moka Pot On It"
     },
     {
       "task_id": 13,
@@ -242,7 +247,8 @@
         "place cream cheese 1 in the basket 1"
       ],
       "bddl_file": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put Both The Alphabet Soup And The Cream Cheese Box In The Basket"
     },
     {
       "task_id": 14,
@@ -254,7 +260,8 @@
         "place tomato sauce 1 in the basket 1"
       ],
       "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put Both The Alphabet Soup And The Tomato Sauce In The Basket"
     },
     {
       "task_id": 15,
@@ -266,7 +273,8 @@
         "place butter 1 in the basket 1"
       ],
       "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put Both The Cream Cheese Box And The Butter In The Basket"
     },
     {
       "task_id": 16,
@@ -278,7 +286,8 @@
         "place white yellow mug 1 on the plate 2"
       ],
       "bddl_file": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The White Mug On The Left Plate And Put The Yellow And White Mug On The Right Plate"
     },
     {
       "task_id": 17,
@@ -290,11 +299,9 @@
         "place chocolate pudding 1 to the right of the plate 1"
       ],
       "bddl_file": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The White Mug On The Plate And Put The Chocolate Pudding To The Right Of The Plate"
     },
-
-
-
     {
       "task_id": 18,
       "name": "Pick The Black Bowl",
@@ -302,63 +309,50 @@
         "pick black bowl 1"
       ],
       "bddl_file": "KITCHEN_SCENE1_put_the_black_bowl_on_the_plate_pick",
-      "benchmark": "atomic_skills"
+      "benchmark": "atomic_skills",
+      "language": "Pick The Black Bowl"
     },
-
-
-
     {
       "task_id": 19,
       "name": "Complete Kitchen Organization V2",
       "skills": [
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
-        
-        
         "pick black bowl 2",
         "place black bowl 2 on the plate 2",
         "pick black bowl 3",
         "stack black bowl 3 on black bowl 2",
         "pick black bowl 1",
         "place black bowl 1 on the plate 1",
-        
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "pick cream cheese, then place cream cheese in the basket, then pick black bowl, then place black bowl on the plate, then pick black bowl, then stack black bowl on black bowl, then pick black bowl, then place black bowl on the plate, then close the bottom drawer of the cabinet"
     },
     {
       "task_id": 20,
       "name": "Organize Table V2",
       "skills": [
-
         "pick alphabet soup 1",
         "place alphabet soup 1 in the basket 2",
-
         "pick tomato sauce 2",
         "place tomato sauce 2 in the basket 3",
-
-
         "pick alphabet soup 2",
         "place alphabet soup 2 in the basket 2",
-
         "pick tomato sauce 1",
         "place tomato sauce 1 in the basket 3",
-
-
         "pick cream cheese 2",
         "place cream cheese 2 in the basket 1",
-        
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
-
-
         "pick black bowl 1",
         "place black bowl 1 in bottom drawer of the cabinet 1",
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_organize_table",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "pick alphabet soup, then place alphabet soup in the basket, then pick tomato sauce, then place tomato sauce in the basket, then pick alphabet soup, then place alphabet soup in the basket, then pick tomato sauce, then place tomato sauce in the basket, then pick cream cheese, then place cream cheese in the basket, then pick cream cheese, then place cream cheese in the basket, then pick black bowl, then place black bowl in bottom drawer of the cabinet, then close the bottom drawer of the cabinet"
     },
     {
       "task_id": 21,
@@ -367,37 +361,32 @@
         "turn on the stove 1",
         "pick moka pot 1",
         "place moka pot 1 on the stove 1",
-
         "turn on the stove 2",
         "pick frying pan 1",
-        "place frying pan 1 on the stove 2",        
-
+        "place frying pan 1 on the stove 2",
         "open the microwave 1"
       ],
       "bddl_file": "LONG_HORIZON_cooking_preparation_setup",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "turn on the stove, then pick moka pot, then place moka pot on the stove, then turn on the stove, then pick frying pan, then place frying pan on the stove, then open the microwave"
     },
-
     {
       "task_id": 22,
       "name": "Complete Kitchen Organization V3",
       "skills": [
-
         "pick black bowl 2",
         "place black bowl 2 on the plate 2",
         "pick black bowl 3",
         "stack black bowl 3 on black bowl 2",
-
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
-
         "pick black bowl 1",
         "place black bowl 1 on the plate 1",
-        
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_complete_kitchen_organization",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "pick black bowl, then place black bowl on the plate, then pick black bowl, then stack black bowl on black bowl, then pick cream cheese, then place cream cheese in the basket, then pick black bowl, then place black bowl on the plate, then close the bottom drawer of the cabinet"
     },
     {
       "task_id": 23,
@@ -407,23 +396,21 @@
         "place alphabet soup 1 in the basket 2",
         "pick alphabet soup 2",
         "place alphabet soup 2 in the basket 2",
-
         "pick tomato sauce 1",
         "place tomato sauce 1 in the basket 3",
         "pick tomato sauce 2",
         "place tomato sauce 2 in the basket 3",
-        
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1",
         "pick cream cheese 2",
         "place cream cheese 2 in the basket 1",
-        
         "pick black bowl 1",
         "place black bowl 1 in bottom drawer of the cabinet 1",
         "close the bottom drawer of the cabinet 1"
       ],
       "bddl_file": "LONG_HORIZON_organize_table",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "pick alphabet soup, then place alphabet soup in the basket, then pick alphabet soup, then place alphabet soup in the basket, then pick tomato sauce, then place tomato sauce in the basket, then pick tomato sauce, then place tomato sauce in the basket, then pick cream cheese, then place cream cheese in the basket, then pick cream cheese, then place cream cheese in the basket, then pick black bowl, then place black bowl in bottom drawer of the cabinet, then close the bottom drawer of the cabinet"
     },
     {
       "task_id": 24,
@@ -431,31 +418,27 @@
       "skills": [
         "turn on the stove 2",
         "turn on the stove 1",
-
         "pick frying pan 1",
-        "place frying pan 1 on the stove 2",        
-        
+        "place frying pan 1 on the stove 2",
         "pick moka pot 1",
         "place moka pot 1 on the stove 1",
         "open the microwave 1"
       ],
       "bddl_file": "LONG_HORIZON_cooking_preparation_setup",
-      "benchmark": "long_horizon_tasks_v1"
+      "benchmark": "long_horizon_tasks_v1",
+      "language": "turn on the stove, then turn on the stove, then pick frying pan, then place frying pan on the stove, then pick moka pot, then place moka pot on the stove, then open the microwave"
     },
-
-
-
     {
       "task_id": 25,
       "name": "Turn On The Stove And Put The Moka Pot On It V1",
       "skills": [
         "pick moka pot 1",
         "place moka pot 1 on the stove 1",
-        
-        "turn on the stove 1"        
+        "turn on the stove 1"
       ],
       "bddl_file": "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The Moka Pot On It And Then Turn On The Stove"
     },
     {
       "task_id": 26,
@@ -465,10 +448,10 @@
         "place cream cheese 1 in the basket 1",
         "pick alphabet soup 1",
         "place alphabet soup 1 in the basket 1"
-        
       ],
       "bddl_file": "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The Cream Cheese Box In The Basket And Then Put The Alphabet Soup In The Basket"
     },
     {
       "task_id": 27,
@@ -478,10 +461,10 @@
         "place tomato sauce 1 in the basket 1",
         "pick alphabet soup 1",
         "place alphabet soup 1 in the basket 1"
-        
       ],
       "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The Tomato Sauce In The Basket And Then Put The Alphabet Soup In The Basket"
     },
     {
       "task_id": 28,
@@ -491,10 +474,10 @@
         "place butter 1 in the basket 1",
         "pick cream cheese 1",
         "place cream cheese 1 in the basket 1"
-        
       ],
       "bddl_file": "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The Butter In The Basket And Then Put The Cream Cheese Box In The Basket"
     },
     {
       "task_id": 29,
@@ -504,10 +487,10 @@
         "place white yellow mug 1 on the plate 2",
         "pick porcelain mug 1",
         "place porcelain mug 1 on the plate 1"
-        
       ],
       "bddl_file": "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The Yellow And White Mug On The Right Plate And Then Put The White Mug On The Left Plate"
     },
     {
       "task_id": 30,
@@ -517,12 +500,11 @@
         "place chocolate pudding 1 to the right of the plate 1",
         "pick porcelain mug 1",
         "place porcelain mug 1 on the plate 1"
-        
       ],
       "bddl_file": "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
-      "benchmark": "long_horizon_tasks_libero_long"
+      "benchmark": "long_horizon_tasks_libero_long",
+      "language": "Put The Chocolate Pudding To The Right Of The Plate And Then Put The White Mug On The Plate"
     }
-
   ],
   "skill_mappings": {
     "pick moka pot 1": {

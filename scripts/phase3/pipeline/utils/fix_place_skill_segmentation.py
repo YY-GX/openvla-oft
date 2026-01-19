@@ -31,10 +31,13 @@ get_object_pose = contact_detector.get_object_pose
 
 # Paths
 SKILL_CONFIG_PATH = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/scripts/phase3/pipeline/config/skill_config.json"
-INPUT_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer/all"
-OUTPUT_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer/place_update_seg"
 BDDL_BASE_PATH = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/externals/boss/libero/libero/bddl_files/atomic_skills"
 
+# INPUT_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer/all"
+# OUTPUT_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer/place_update_seg"
+
+INPUT_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_27_skills/all_downsampled"
+OUTPUT_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_27_skills/all_downsampled_fixed_seg"
 
 def load_skill_config() -> Dict:
     """Load skill config from JSON."""

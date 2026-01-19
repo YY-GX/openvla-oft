@@ -8,6 +8,9 @@ This script:
 3. Saves videos to scripts/phase3/pipeline/outputs/videos/gen_dataset_videos
 
 Alternatively, can check a specific HDF5 file and extract 10 demos from it.
+
+
+python scripts/phase3/pipeline/utils/extract_dataset_videos.py --hdf5-file /mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer/v7/pick_red_mug_failure.hdf5
 """
 
 import os
@@ -37,8 +40,18 @@ OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/dataset_samp
 HDF5_DIR = "datasets/hdf5_datasets/atomic_above_fewer/v1"
 OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/failure_videos_examples"
 
-HDF5_DIR = "datasets/hdf5_datasets/atomic_above_fewer/all_downsampled"
-OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/dataset_samples_all_downsampled"
+HDF5_DIR = "datasets/hdf5_datasets/atomic_above_fewer/v7"
+OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/failure_videos_examples_v4"
+
+# HDF5_DIR = "datasets/hdf5_datasets/atomic_above_fewer/all_downsampled"
+# OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/dataset_samples_all_downsampled"
+
+# HDF5_DIR = "datasets/hdf5_datasets/atomic_above_27_skills/all_downsampled"
+# OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/dataset_samples_all_27skills"
+
+
+# HDF5_DIR = "datasets/hdf5_datasets/atomic_above_27_skills/all_downsampled_fixed_seg"
+# OUTPUT_VIDEO_DIR = "scripts/phase3/pipeline/outputs/videos/demo_gen/dataset_samples_all_27skills_fixed_seg"
 
 def load_hdf5_demo(h5file: h5py.File, demo_key: str) -> Optional[Dict]:
     """
@@ -226,6 +239,115 @@ def _prepare_segmentation_frames(seg_frames: np.ndarray) -> np.ndarray:
     return np.stack(rotated_frames)
 
 
+def save_demo_video_with_labels(demo: Dict, skill_name: str, video_dir: str,
+                                 demo_suffix: str = "", labels: List[Dict] = None):
+    """
+    Save video with label overlay (stage_name, reachout, reward, success_prob).
+
+    Args:
+        demo: Demo dict with 'obs' containing camera frames
+        skill_name: Skill name for filename
+        video_dir: Directory to save video
+        demo_suffix: Optional suffix to add to filename (e.g., "_demo0")
+        labels: List of label dicts with keys: t, stage_name, reachout, reward, success_prob
+    """
+    if 'obs' not in demo or 'agentview_rgb' not in demo['obs']:
+        print(f"  Warning: No agentview_rgb in demo for {skill_name}")
+        return
+
+    agent_frames = demo['obs']['agentview_rgb']
+    if agent_frames.shape[0] == 0:
+        print(f"  Warning: Empty agentview frames for {skill_name}")
+        return
+
+    try:
+        agent_frames = _prepare_rgb_frames(agent_frames)
+    except Exception as exc:
+        print(f"  Warning: Failed to prepare agentview frames for {skill_name}: {exc}")
+        return
+
+    wrist_frames_raw = _get_wrist_frames(demo['obs'])
+    if wrist_frames_raw is None:
+        print(f"  Warning: No wrist camera frames found for {skill_name}, duplicating agentview")
+        wrist_frames = agent_frames.copy()
+    else:
+        try:
+            wrist_frames = _prepare_rgb_frames(wrist_frames_raw)
+        except Exception as exc:
+            print(f"  Warning: Failed to prepare wrist frames for {skill_name}: {exc}")
+            wrist_frames = agent_frames.copy()
+
+    # Determine minimum frame count
+    min_frames = min(agent_frames.shape[0], wrist_frames.shape[0])
+    if min_frames == 0:
+        print(f"  Warning: No usable frames for {skill_name}")
+        return
+
+    agent_frames = agent_frames[:min_frames]
+    wrist_frames = wrist_frames[:min_frames]
+
+    # Build label lookup by timestep
+    label_lookup = {}
+    if labels:
+        for lbl in labels:
+            label_lookup[lbl['t']] = lbl
+
+    combined_frames = []
+    target_hw = agent_frames.shape[1:3]
+    target_size = (target_hw[1], target_hw[0])
+
+    for t, (agent_frame, wrist_frame) in enumerate(zip(agent_frames, wrist_frames)):
+        # Resize wrist frame if needed
+        if wrist_frame.shape[0:2] != target_hw:
+            try:
+                wrist_frame = np.array(Image.fromarray(wrist_frame).resize(target_size, Image.BILINEAR))
+            except Exception:
+                wrist_frame = wrist_frame[:target_hw[0], :target_hw[1]]
+
+        # Concatenate frames
+        combined = np.concatenate([agent_frame, wrist_frame], axis=1)
+
+        # Add label overlay if available
+        if t in label_lookup:
+            lbl = label_lookup[t]
+            stage = lbl.get('stage_name', '?')
+            reachout = lbl.get('reachout', 0)
+            reward = lbl.get('reward', 0)
+            success_prob = lbl.get('success_prob', 0)
+
+            # Draw text overlay
+            text_lines = [
+                f"t={t} stage={stage}",
+                f"reachout={reachout:.2f}",
+                f"reward={reward:.2f}",
+                f"success={success_prob:.2f}"
+            ]
+
+            # Use OpenCV to draw text
+            y_offset = 20
+            for line in text_lines:
+                cv2.putText(combined, line, (10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                cv2.putText(combined, line, (10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+                y_offset += 18
+
+        combined_frames.append(combined)
+
+    frames = np.stack(combined_frames)
+
+    # Create video filename
+    video_filename = f"{skill_name}{demo_suffix}_labeled.mp4"
+    video_path = os.path.join(video_dir, video_filename)
+
+    # Save video using imageio
+    try:
+        imageio.mimwrite(video_path, frames, fps=30, quality=8)
+        print(f"  Saved labeled video: {video_filename}")
+    except Exception as e:
+        print(f"  Failed to save video {video_filename}: {e}")
+
+
 def save_demo_video(demo: Dict, skill_name: str, video_dir: str, demo_suffix: str = ""):
     """
     Save video combining agentview, wrist camera, and segmentation frames side-by-side.
@@ -358,8 +480,8 @@ def main():
     parser.add_argument(
         '--hdf5-file',
         type=str,
-        default='datasets/hdf5_datasets/atomic_above_fewer_v1/all/place_black_bowl_on_the_plate.hdf5',
-        help='Path to HDF5 file to check (only used in check mode)'
+        default=None,
+        help='Path to HDF5 file to check (only used in check mode). If specified, processes all demos.'
     )
     parser.add_argument(
         '--failure-mode',
@@ -367,17 +489,116 @@ def main():
         default=False,
         help='If enabled, only extract videos from _failure.hdf5 files (default: False)'
     )
-    
+    parser.add_argument(
+        '--labels-file',
+        type=str,
+        default=None,
+        help='Path to timestep labels JSON file. Will extract videos with label overlays for specified demos.'
+    )
+    parser.add_argument(
+        '--demos',
+        type=str,
+        default='demo_0,demo_1',
+        help='Comma-separated list of demo IDs to extract when using --labels-file (default: demo_0,demo_1)'
+    )
+
     args = parser.parse_args()
     
     print("=" * 80)
     print("Extract Dataset Videos")
     print("=" * 80)
-    
-    # Handle HDF5 check mode
-    if args.check_hdf5:
-        print("Mode: HDF5 Check Mode")
+
+    # Handle labels file mode (--labels-file)
+    if args.labels_file is not None:
+        print("Mode: Labels Visualization Mode")
+        print(f"Labels file: {args.labels_file}")
+
+        # Load labels (one JSON object per line, with trailing commas)
+        if not os.path.exists(args.labels_file):
+            print(f"  Error: Labels file does not exist: {args.labels_file}")
+            return
+
+        all_labels = []
+        with open(args.labels_file, 'r') as f:
+            for line in f:
+                line = line.strip().rstrip(',')
+                if line:
+                    all_labels.append(json.loads(line))
+
+        if not all_labels:
+            print(f"  Error: Labels file is empty")
+            return
+
+        # Get hdf5_path from first label record
+        hdf5_path = all_labels[0].get('hdf5_path')
+        skill_name = all_labels[0].get('skill_name', 'unknown')
+        if not hdf5_path or not os.path.exists(hdf5_path):
+            print(f"  Error: HDF5 path not found or invalid: {hdf5_path}")
+            return
+
+        print(f"HDF5 file: {hdf5_path}")
+        print(f"Skill: {skill_name}")
+
+        # Parse demos to extract
+        demo_ids = [d.strip() for d in args.demos.split(',')]
+        print(f"Demos to extract: {demo_ids}")
+
+        # Group labels by demo_id
+        labels_by_demo = {}
+        for lbl in all_labels:
+            demo_id = lbl.get('demo_id')
+            if demo_id not in labels_by_demo:
+                labels_by_demo[demo_id] = []
+            labels_by_demo[demo_id].append(lbl)
+
+        # Output directory
+        labels_basename = os.path.splitext(os.path.basename(args.labels_file))[0]
+        output_video_dir = f"scripts/phase3/pipeline/outputs/videos/demo_gen/labels_check/{labels_basename}"
+        os.makedirs(output_video_dir, exist_ok=True)
+        print(f"Output directory: {output_video_dir}")
+        print()
+
+        # Process each requested demo
+        success_count = 0
+        with h5py.File(hdf5_path, 'r') as h5file:
+            for demo_id in demo_ids:
+                if demo_id not in labels_by_demo:
+                    print(f"  Warning: No labels found for {demo_id}")
+                    continue
+
+                print(f"Processing {demo_id}...")
+                demo = load_hdf5_demo(h5file, demo_id)
+                if demo is None:
+                    print(f"  Warning: Could not load {demo_id}")
+                    continue
+
+                demo_labels = labels_by_demo[demo_id]
+                save_demo_video_with_labels(demo, skill_name, output_video_dir,
+                                            f"_{demo_id}", demo_labels)
+                success_count += 1
+
+        print()
+        print("=" * 80)
+        print(f"Done! {success_count} videos saved to {output_video_dir}")
+        print("=" * 80)
+        return
+
+    # Handle single HDF5 file mode (when --hdf5-file is specified or --check-hdf5 is set)
+    if args.hdf5_file is not None or args.check_hdf5:
+        # If --check-hdf5 is set but --hdf5-file is not provided, use default
+        if args.check_hdf5 and args.hdf5_file is None:
+            args.hdf5_file = 'datasets/hdf5_datasets/atomic_above_fewer_v1/all/place_black_bowl_on_the_plate.hdf5'
+            process_all_demos = False
+        else:
+            # When --hdf5-file is explicitly provided, always process all demos
+            process_all_demos = True
+        
+        print("Mode: Single HDF5 File Mode")
         print(f"HDF5 file: {args.hdf5_file}")
+        if process_all_demos:
+            print("Processing all demos (--hdf5-file was explicitly specified)")
+        else:
+            print("Sampling demos (using default file with --check-hdf5)")
         if args.failure_mode:
             print("Failure mode: ENABLED (only processing failure files)")
         
@@ -419,16 +640,20 @@ def main():
                 
                 print(f"Found {len(demo_keys)} demos in file")
                 
-                # Sample 10 demos (or all if less than 10)
-                num_samples = min(4, len(demo_keys))
-                sampled_indices = np.linspace(0, len(demo_keys) - 1, num_samples, dtype=int)
-                sampled_demo_keys = [demo_keys[i] for i in sampled_indices]
+                if process_all_demos:
+                    # Process all demos
+                    print(f"Processing all {len(demo_keys)} demos...")
+                    print()
+                    demos_to_process = demo_keys
+                else:
+                    # Sample 4 demos (or all if less than 4)
+                    num_samples = min(4, len(demo_keys))
+                    demos_to_process = np.random.choice(demo_keys, size=num_samples, replace=False).tolist()
+                    print(f"Sampling {num_samples} demos: {demos_to_process}")
+                    print()
                 
-                print(f"Sampling {num_samples} demos: {sampled_demo_keys}")
-                print()
-                
-                # Process each sampled demo
-                for demo_key in tqdm(sampled_demo_keys, desc="Processing demos", unit="demo"):
+                # Process each demo
+                for demo_key in tqdm(demos_to_process, desc="Processing demos", unit="demo"):
                     # Load the demo
                     demo = load_hdf5_demo(h5file, demo_key)
                     
@@ -452,7 +677,8 @@ def main():
         print("=" * 80)
         print(f"HDF5 file: {args.hdf5_file}")
         print(f"Total demos in file: {len(demo_keys)}")
-        print(f"Demos sampled: {num_samples}")
+        if not process_all_demos:
+            print(f"Demos sampled: {num_samples}")
         print(f"Successfully processed: {success_count}")
         print(f"Failed: {failed_count}")
         print(f"Videos saved to: {output_video_dir}")
@@ -498,8 +724,8 @@ def main():
     for hdf5_filename in tqdm(hdf5_files, desc="Processing HDF5 files", unit="file"):
         skill_name = os.path.splitext(hdf5_filename)[0]
         hdf5_path = os.path.join(HDF5_DIR, hdf5_filename)
-        if "place_butter_in_basket.hdf5" not in hdf5_path:
-            continue
+        # if "place_black_bowl_on_the_plate.hdf5" not in hdf5_path:
+        #     continue
         
         try:
             with h5py.File(hdf5_path, 'r') as h5file:
@@ -512,7 +738,7 @@ def main():
                     continue
                 
                 # Sample 2 demos (or all if less than 2)
-                num_samples = min(10, len(demo_keys))
+                num_samples = min(5, len(demo_keys))
                 
                 # Prefer non-shifted demos if available
                 non_shifted_keys = []
@@ -561,16 +787,19 @@ def main():
                         shifted_keys.append(demo_key)
                 
                 # Prioritize non-shifted demos, then fill with shifted if needed
+                # Uniformly sample from each category
                 selected_keys = []
                 if non_shifted_keys:
-                    selected_keys.extend(non_shifted_keys[:num_samples])
+                    num_non_shifted = min(num_samples, len(non_shifted_keys))
+                    selected_keys.extend(np.random.choice(non_shifted_keys, size=num_non_shifted, replace=False).tolist())
                 if len(selected_keys) < num_samples and shifted_keys:
                     remaining = num_samples - len(selected_keys)
-                    selected_keys.extend(shifted_keys[:remaining])
+                    num_shifted = min(remaining, len(shifted_keys))
+                    selected_keys.extend(np.random.choice(shifted_keys, size=num_shifted, replace=False).tolist())
                 
                 # Process each selected demo
                 skill_success = 0
-                for idx, demo_key in enumerate(selected_keys):
+                for demo_key in selected_keys:
                     # Load the demo
                     demo = load_hdf5_demo(h5file, demo_key)
                     
@@ -578,8 +807,9 @@ def main():
                         print(f"  ⚠️  Warning: Could not load {demo_key} from {hdf5_filename}")
                         continue
                     
-                    # Save video with demo suffix
-                    demo_suffix = f"_demo{idx}"
+                    # Extract the number from demo_key (e.g., "demo_2" -> "2", "demo_32" -> "32")
+                    demo_num = demo_key.split('_')[-1] if '_' in demo_key else demo_key.replace('demo', '')
+                    demo_suffix = f"_{demo_num}"
                     save_demo_video(demo, skill_name, OUTPUT_VIDEO_DIR, demo_suffix)
                     skill_success += 1
                 

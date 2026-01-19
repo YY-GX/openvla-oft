@@ -970,6 +970,7 @@ OXE_STANDARDIZATION_TRANSFORMS = {
     "libero_above_atomic_libero_complex_tasks": libero_dataset_transform,
     "libero_above_atomic_libero_all": libero_dataset_transform,
     "libero_above_atomic_libero_all_no_random_erasing": libero_dataset_transform,
+    "libero_above_atomic_libero_all_10_per_skill": libero_dataset_transform,
     "libero_above_atomic_libero_all_vanilla": libero_dataset_transform,
     "libero_above_atomic_libero_all_obj": libero_dataset_transform,
     "libero_oft_obj_long_id10": libero_baseline_dataset_transform,
