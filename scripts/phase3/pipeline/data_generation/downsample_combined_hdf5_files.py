@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-Downsample combined atomic_above_fewer demos in `all/` into `all_downsampled/`.
+Downsample combined atomic_above demos in `all/` into `downsample_{total}/`.
 
 For each skill:
-- Sample up to 50 non-shifted demos
-- Sample up to 30 standard_shift demos
-- Sample up to 20 z_only_shift demos
-- Total target: 100 demos
+- Sample up to --max_non_shifted non-shifted demos (default: 20)
+- Sample up to --max_standard standard_shift demos (default: 15)
+- Sample up to --max_z_only z_only_shift demos (default: 15)
+- Total target: sum of the three (default: 50)
 
 If standard_shift or z_only_shift have fewer demos than requested, use
-non-shifted demos (that weren't already sampled) to make up the difference,
-trying to reach 100 total demos.
+non-shifted demos (that weren't already sampled) to make up the difference.
 
 Classification rules (per demo's metadata):
 - Non-shifted: shifted=False OR iteration==0 OR shift_info is None
@@ -33,10 +32,9 @@ import numpy as np
 from tqdm import tqdm
 
 
-BASE_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_fewer"
-BASE_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_26_skills"
+BASE_DIR = "/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_27_skills"
 INPUT_DIR = os.path.join(BASE_DIR, "all")
-OUTPUT_DIR = os.path.join(BASE_DIR, "all_downsampled")
+# OUTPUT_DIR is set dynamically in main() based on downsampling params
 
 # Skills to downsample when --skill_filter is enabled (edit this list as needed)
 SKILL_FILTER_LIST = [
@@ -149,6 +147,7 @@ def downsample_skill(
     hdf5_path: str,
     init_path: str,
     rng: np.random.Generator,
+    output_dir: str,
     skill_name: str = "",
     use_source_filtering: bool = False,
     max_non_shifted: int = 20,
@@ -317,8 +316,8 @@ def downsample_skill(
             stats["non_shifted_makeup_for_z_only"] = 0
 
         # Write downsampled HDF5
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        out_hdf5_path = os.path.join(OUTPUT_DIR, os.path.basename(hdf5_path))
+        os.makedirs(output_dir, exist_ok=True)
+        out_hdf5_path = os.path.join(output_dir, os.path.basename(hdf5_path))
         with h5py.File(out_hdf5_path, "w") as out_f:
             out_data = out_f.create_group("data")
             for new_idx, orig_idx in enumerate(selected_all):
@@ -336,7 +335,7 @@ def downsample_skill(
                 if init_idx < len(init_states):
                     selected_init_states.append(init_states[init_idx])
 
-            out_init_path = os.path.join(OUTPUT_DIR, os.path.basename(init_path))
+            out_init_path = os.path.join(output_dir, os.path.basename(init_path))
             if selected_init_states:
                 save_init_states(selected_init_states, out_init_path)
 
@@ -364,14 +363,38 @@ def main():
         default=False,
         help="Enable source filtering for multi-BDDL skills (uses MANUAL_SOURCE_SELECTION config)",
     )
+    parser.add_argument(
+        "--max_non_shifted",
+        type=int,
+        default=20,
+        help="Max non-shifted demos to sample per skill (default: 20)",
+    )
+    parser.add_argument(
+        "--max_standard",
+        type=int,
+        default=15,
+        help="Max standard_shift demos to sample per skill (default: 15)",
+    )
+    parser.add_argument(
+        "--max_z_only",
+        type=int,
+        default=15,
+        help="Max z_only_shift demos to sample per skill (default: 15)",
+    )
     args = parser.parse_args()
+
+    # Compute dynamic output directory based on downsampling params
+    total_demos = args.max_non_shifted + args.max_standard + args.max_z_only
+    output_dir = f"/mnt/arc/yygx/pkgs_baselines/openvla-oft/datasets/hdf5_datasets/atomic_above_27_skills/downsample_{total_demos}"
 
     rng = np.random.default_rng(args.seed)
 
     if not os.path.exists(INPUT_DIR):
         raise FileNotFoundError(f"Input directory not found: {INPUT_DIR}")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Output directory: {output_dir}")
+    print(f"Downsampling params: max_non_shifted={args.max_non_shifted}, max_standard={args.max_standard}, max_z_only={args.max_z_only} (total={total_demos})")
 
     skill_files = sorted(
         f
@@ -409,8 +432,12 @@ def main():
             hdf5_path,
             init_path,
             rng,
+            output_dir=output_dir,
             skill_name=skill_name,
             use_source_filtering=args.use_source_filtering,
+            max_non_shifted=args.max_non_shifted,
+            max_standard=args.max_standard,
+            max_z_only=args.max_z_only,
         )
         all_skill_stats[skill_name] = stats
         if warnings:
@@ -448,18 +475,18 @@ def main():
                 )
         print()
     
-    # Print skills that don't have 100 demos
-    print("\n===== Skills with < 100 demos =====")
-    skills_under_100 = [
+    # Print skills that don't have the target number of demos
+    print(f"\n===== Skills with < {total_demos} demos =====")
+    skills_under_target = [
         (skill_name, stats['total_selected'])
         for skill_name, stats in all_skill_stats.items()
-        if stats['total_selected'] < 100
+        if stats['total_selected'] < total_demos
     ]
-    if skills_under_100:
-        for skill_name, count in sorted(skills_under_100, key=lambda x: x[1]):
+    if skills_under_target:
+        for skill_name, count in sorted(skills_under_target, key=lambda x: x[1]):
             print(f"  {skill_name}: {count} demos")
     else:
-        print("  All skills have 100 demos!")
+        print(f"  All skills have {total_demos} demos!")
 
 
 if __name__ == "__main__":
